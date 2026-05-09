@@ -27,7 +27,7 @@ st.set_page_config(
     page_title="El Camino",
     page_icon="🛣️",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 ensure_app_ready()
