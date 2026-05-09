@@ -44,10 +44,10 @@ else:
             alt.Tooltip("num_orders:Q", title="Orders"),
         ],
     ).properties(height=350)
-    st.altair_chart(bars, use_container_width=True)
+    st.altair_chart(bars, width='stretch')
 
     st.markdown("### Detail")
     table = df.copy()
     table["revenue"] = table["revenue"].round(2)
     table.columns = ["Day", "# Orders", "Revenue ($)"]
-    st.dataframe(table, use_container_width=True, hide_index=True)
+    st.dataframe(table, width='stretch', hide_index=True)

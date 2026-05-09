@@ -81,11 +81,11 @@ else:
                         "ready": "Mark Completed",
                     }[status]
                     with btn_cols[0]:
-                        if st.button(next_label, key=f"adv_{o['id']}", use_container_width=True, type="primary"):
+                        if st.button(next_label, key=f"adv_{o['id']}", width='stretch', type="primary"):
                             orders_mod.advance_status(o["id"])
                             st.rerun()
                     with btn_cols[1]:
-                        if st.button("✕", key=f"cancel_{o['id']}", use_container_width=True):
+                        if st.button("✕", key=f"cancel_{o['id']}", width='stretch'):
                             orders_mod.cancel_order(o["id"])
                             st.rerun()
 

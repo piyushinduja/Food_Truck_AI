@@ -48,7 +48,7 @@ if not st.session_state.owner_messages:
     cols = st.columns(len(SUGGESTIONS))
     for col, s in zip(cols, SUGGESTIONS):
         with col:
-            if st.button(s, use_container_width=True, key=f"sug_{s}"):
+            if st.button(s, width='stretch', key=f"sug_{s}"):
                 st.session_state.pending_input = s
                 st.rerun()
 
@@ -90,6 +90,6 @@ if prompt:
 
 
 with st.sidebar:
-    if st.button("Clear chat", use_container_width=True):
+    if st.button("Clear chat", width='stretch'):
         st.session_state.owner_messages = []
         st.rerun()

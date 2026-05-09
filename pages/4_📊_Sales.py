@@ -36,14 +36,14 @@ else:
         color=alt.Color("category:N", scale=alt.Scale(scheme="orangered")),
         tooltip=["name", "units_sold", "revenue"],
     ).properties(height=350)
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width='stretch')
 
     # Table
     st.markdown("### Detail")
     table = df.copy()
     table["revenue"] = table["revenue"].round(2)
     table.columns = ["Item", "Category", "Units Sold", "Revenue ($)"]
-    st.dataframe(table, use_container_width=True, hide_index=True)
+    st.dataframe(table, width='stretch', hide_index=True)
 
 
 # Category breakdown
@@ -57,6 +57,6 @@ if cat:
         color=alt.Color("category:N", scale=alt.Scale(scheme="orangered")),
         tooltip=["category", "revenue", "units"],
     ).properties(height=300)
-    st.altair_chart(pie, use_container_width=True)
+    st.altair_chart(pie, width='stretch')
 else:
     st.caption("No category data yet.")

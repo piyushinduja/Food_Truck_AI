@@ -40,7 +40,7 @@ if suggestions:
             with cols[2]:
                 st.markdown(f"Est. cost: **${s['estimated_cost']:.2f}**")
             with cols[3]:
-                if st.button("Order", key=f"restock_{s['ingredient']}", type="primary", use_container_width=True):
+                if st.button("Order", key=f"restock_{s['ingredient']}", type="primary", width='stretch'):
                     result = inv_mod.place_restock_order(s["ingredient"], s["suggested_qty"])
                     if result["ok"]:
                         st.success(f"Ordered. Confirmation: {result['confirmation_id']}")
@@ -60,7 +60,7 @@ df["value"] = (df["quantity"] * df["cost_per_unit"]).round(2)
 df = df[["status", "ingredient", "quantity", "unit", "reorder_threshold", "cost_per_unit", "value"]]
 df.columns = ["Status", "Ingredient", "Qty", "Unit", "Reorder At", "Cost/Unit", "Value ($)"]
 
-st.dataframe(df, use_container_width=True, hide_index=True)
+st.dataframe(df, width='stretch', hide_index=True)
 
 
 # Manual restock — pick anything
@@ -73,7 +73,7 @@ with manual_cols[1]:
     qty = st.number_input("Quantity", min_value=0.0, value=100.0, step=10.0)
 with manual_cols[2]:
     st.markdown("&nbsp;")
-    if st.button("Place Order", use_container_width=True):
+    if st.button("Place Order", width='stretch'):
         result = inv_mod.place_restock_order(selected, qty)
         if result["ok"]:
             st.success(f"Ordered {qty} {result['unit']} of {selected} — ${result['cost']:.2f} ({result['confirmation_id']})")
@@ -89,4 +89,4 @@ if restocks:
     rdf = pd.DataFrame(restocks)
     rdf = rdf[["created_at", "ingredient", "quantity", "unit", "cost", "supplier", "status"]]
     rdf.columns = ["Time", "Ingredient", "Qty", "Unit", "Cost ($)", "Supplier", "Status"]
-    st.dataframe(rdf, use_container_width=True, hide_index=True)
+    st.dataframe(rdf, width='stretch', hide_index=True)

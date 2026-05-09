@@ -64,7 +64,7 @@ with left:
                 with st.container(border=True):
                     st.markdown(f"**{item['name']}** &nbsp; · &nbsp; ${item['price']:.2f}")
                     st.caption(item["description"])
-                    if st.button("Add", key=f"add_{item['id']}", use_container_width=True):
+                    if st.button("Add", key=f"add_{item['id']}", width='stretch'):
                         add_to_cart(item)
                         st.rerun()
 
@@ -146,15 +146,20 @@ with right:
     # ---- Checkout ----
     st.markdown("---")
     name = st.text_input("Your name (for the order)", value="", placeholder="e.g. Maria")
+    phone = st.text_input("Phone for SMS updates (optional)", value="", placeholder="e.g. +15551234567")
     can_checkout = bool(st.session_state.cart) and bool(name.strip())
 
-    if st.button("Place Order & Pay", type="primary", use_container_width=True, disabled=not can_checkout):
+    if st.button("Place Order & Pay", type="primary", width='stretch', disabled=not can_checkout):
         cart_payload = [
             {"menu_id": c["menu_id"], "quantity": c["quantity"], "notes": c.get("notes")}
             for c in st.session_state.cart
         ]
         with st.spinner("Charging card..."):
-            result = orders_mod.create_order(cart_payload, customer_name=name.strip())
+            result = orders_mod.create_order(
+                cart_payload,
+                customer_name=name.strip(),
+                phone=phone.strip() or None,
+            )
 
         if result["ok"]:
             st.success(f"Order #{result['order_id']} placed! Total ${result['total']:.2f}")

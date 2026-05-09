@@ -102,7 +102,7 @@ Welcome to the operations console. Use the sidebar to navigate:
 # Sidebar demo controls
 with st.sidebar:
     st.markdown("### Demo Controls")
-    if st.button("🔄 Reset Database", use_container_width=True):
+    if st.button("🔄 Reset Database", width='stretch'):
         reset_db()
         seed()
         st.success("Reset and re-seeded.")

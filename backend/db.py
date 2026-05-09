@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS recipe (
 CREATE TABLE IF NOT EXISTS orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     customer_name TEXT,
+    phone TEXT,
     status TEXT NOT NULL DEFAULT 'pending',  -- pending, preparing, ready, completed
     total REAL NOT NULL,
     payment_status TEXT NOT NULL DEFAULT 'paid',
@@ -87,9 +88,13 @@ CREATE TABLE IF NOT EXISTS restock_log (
 
 
 def init_db():
-    """Create tables if they don't exist."""
+    """Create tables if they don't exist. Also runs lightweight migrations."""
     with get_conn() as conn:
         conn.executescript(SCHEMA)
+        # Migration: add phone column to existing DBs
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(orders)").fetchall()]
+        if "phone" not in cols:
+            conn.execute("ALTER TABLE orders ADD COLUMN phone TEXT")
 
 
 def reset_db():

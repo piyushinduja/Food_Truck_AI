@@ -18,7 +18,7 @@ def get_menu(only_available: bool = True):
     return [dict(r) for r in rows]
 
 
-def create_order(cart: list[dict], customer_name: str = "guest") -> dict:
+def create_order(cart: list[dict], customer_name: str = "guest", phone: str | None = None) -> dict:
     """cart: [{menu_id, quantity, notes?}, ...]
 
     Validates availability, charges payment, creates order rows, deducts inventory.
@@ -55,9 +55,9 @@ def create_order(cart: list[dict], customer_name: str = "guest") -> dict:
     # 3. Insert order + items
     with get_conn() as conn:
         cur = conn.execute(
-            """INSERT INTO orders (customer_name, status, total, payment_status, payment_id)
-               VALUES (?, 'pending', ?, 'paid', ?)""",
-            (customer_name, total, pay["payment_id"]),
+            """INSERT INTO orders (customer_name, phone, status, total, payment_status, payment_id)
+               VALUES (?, ?, 'pending', ?, 'paid', ?)""",
+            (customer_name, phone, total, pay["payment_id"]),
         )
         order_id = cur.lastrowid
         for item in cart:
@@ -130,9 +130,12 @@ def list_active_orders():
 
 def advance_status(order_id: int) -> dict:
     """Move order to next stage in STATUS_FLOW."""
+    phone = None
+    customer_name = None
+    new_status = None
     with get_conn() as conn:
         row = conn.execute(
-            "SELECT status FROM orders WHERE id = ?", (order_id,)
+            "SELECT status, customer_name, phone FROM orders WHERE id = ?", (order_id,)
         ).fetchone()
         if not row:
             return {"ok": False, "error": "not_found"}
@@ -148,6 +151,14 @@ def advance_status(order_id: int) -> dict:
             "UPDATE orders SET status = ?, completed_at = COALESCE(?, completed_at) WHERE id = ?",
             (new_status, completed_at, order_id),
         )
+        if new_status == "ready":
+            phone = row["phone"]
+            customer_name = row["customer_name"]
+
+    if new_status == "ready" and phone:
+        from . import sms as sms_mod
+        sms_mod.send_sms(phone, f"Hey {customer_name}! Your order #{order_id} at El Camino is ready for pickup. 🌮")
+
     return {"ok": True, "order_id": order_id, "new_status": new_status}
 
 
