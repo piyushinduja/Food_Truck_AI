@@ -3,7 +3,7 @@ import _path_setup  # noqa: F401
 import streamlit as st
 import pandas as pd
 
-from backend import inventory as inv_mod
+from backend import inventory as inv_mod, agents
 
 
 st.set_page_config(page_title="Inventory — El Camino", page_icon="📦", layout="wide")
@@ -15,6 +15,10 @@ inv = inv_mod.list_inventory()
 low = inv_mod.get_low_stock()
 suggestions = inv_mod.suggest_restocks()
 
+# Session state for AI restock cart
+if "ai_cart" not in st.session_state:
+    st.session_state.ai_cart = None  # list of order dicts when generated
+
 # Summary cards
 c1, c2, c3 = st.columns(3)
 with c1:
@@ -24,6 +28,110 @@ with c2:
 with c3:
     inv_value = sum(i["quantity"] * i["cost_per_unit"] for i in inv)
     st.metric("Inventory Value", f"${inv_value:,.2f}")
+
+
+# AI Restock Cart
+st.markdown("---")
+st.markdown("### 🤖 AI Restock Cart")
+st.caption("AI analyzes your stock levels and sales velocity, then proposes a shopping cart. You approve before anything is ordered.")
+
+gen_col, clear_col = st.columns([2, 1])
+with gen_col:
+    if st.button("Generate AI Restock Plan", type="primary", use_container_width=True):
+        with st.spinner("Analyzing inventory and sales velocity..."):
+            try:
+                stockout_data = inv_mod.predict_stockouts(days=7)
+                cart = agents.generate_restock_cart(low, stockout_data)
+                if cart:
+                    st.session_state.ai_cart = cart
+                else:
+                    st.info("AI found nothing urgent to restock right now.")
+                    st.session_state.ai_cart = []
+            except Exception as e:
+                st.error(f"Failed to generate plan: {e}")
+with clear_col:
+    if st.button("Clear Cart", use_container_width=True):
+        st.session_state.ai_cart = None
+        st.rerun()
+
+if st.session_state.ai_cart:
+    cart = st.session_state.ai_cart
+
+    priority_emoji = {"urgent": "🔴", "soon": "🟡", "optional": "🔵"}
+
+    st.markdown("Review the AI's recommendations below. Edit quantities if needed, then approve the items you want to order.")
+
+    approved_items = []
+    for i, item in enumerate(cart):
+        with st.container(border=True):
+            c1, c2, c3, c4, c5 = st.columns([0.4, 2.5, 1.2, 1.2, 0.8])
+            with c1:
+                approved = st.checkbox(
+                    "Approve",
+                    value=item["priority"] in ("urgent", "soon"),
+                    key=f"approve_{i}",
+                    label_visibility="collapsed",
+                )
+            with c2:
+                badge = priority_emoji.get(item["priority"], "⚪")
+                st.markdown(f"**{badge} {item['ingredient']}**")
+                st.caption(item["reasoning"])
+            with c3:
+                qty = st.number_input(
+                    "Qty",
+                    min_value=0.0,
+                    value=float(item["suggested_qty"]),
+                    step=10.0,
+                    key=f"qty_{i}",
+                    label_visibility="collapsed",
+                )
+                st.caption(f"{item['unit']}")
+            with c4:
+                cost = item["cost_per_unit"] * qty * 1.15
+                st.markdown(f"**${cost:.2f}**")
+                st.caption("est. cost")
+            with c5:
+                st.markdown(f"`{item['priority']}`")
+
+            if approved and qty > 0:
+                approved_items.append({"ingredient": item["ingredient"], "qty": qty})
+
+    if approved_items:
+        total_est = sum(
+            item["estimated_cost"] * (
+                st.session_state.get(f"qty_{i}", item["suggested_qty"]) / item["suggested_qty"]
+                if item["suggested_qty"] > 0 else 1
+            )
+            for i, item in enumerate(cart)
+            if st.session_state.get(f"approve_{i}", False)
+        )
+        st.markdown(f"**{len(approved_items)} item(s) selected · Est. total: ${total_est:.2f}**")
+
+        if st.button("Place Approved Orders", type="primary", use_container_width=True):
+            results = []
+            errors = []
+            for a in approved_items:
+                r = inv_mod.place_restock_order(a["ingredient"], a["qty"])
+                if r["ok"]:
+                    results.append(r)
+                else:
+                    errors.append(f"{a['ingredient']}: {r.get('error')}")
+
+            if results:
+                st.success(f"✓ Placed {len(results)} order(s)")
+                for r in results:
+                    st.markdown(f"- **{r['ingredient']}** — {r['quantity']} {r['unit']} · ${r['cost']:.2f} · `{r['confirmation_id']}`")
+            if errors:
+                for e in errors:
+                    st.error(e)
+
+            st.session_state.ai_cart = None
+            st.rerun()
+    else:
+        st.caption("Check the boxes next to items you want to order.")
+
+elif st.session_state.ai_cart is not None and len(st.session_state.ai_cart) == 0:
+    st.success("Everything looks well-stocked. No urgent restocks needed.")
 
 
 # Low-stock alerts with one-click restock
@@ -80,6 +188,46 @@ with manual_cols[2]:
             st.rerun()
         else:
             st.error(result.get("error"))
+
+
+# Stockout Forecast
+st.markdown("---")
+st.markdown("### 🔮 Stockout Forecast")
+st.caption("Based on consumption velocity from the last 7 days of orders.")
+
+stockouts = inv_mod.predict_stockouts(days=7)
+active_stockouts = [s for s in stockouts if s["days_remaining"] is not None]
+
+if not active_stockouts:
+    st.info("No velocity data yet — place some orders to build forecasts.")
+else:
+    def days_label(d):
+        if d is None:
+            return "—"
+        if d < 2:
+            return f"🔴 {d}d"
+        if d < 5:
+            return f"🟡 {d}d"
+        return f"🟢 {d}d"
+
+    sdf = pd.DataFrame([
+        {
+            "Ingredient": s["ingredient"],
+            "On Hand": f"{s['current_qty']} {s['unit']}",
+            "Daily Use": f"{s['daily_velocity']} {s['unit']}/day",
+            "Days Remaining": days_label(s["days_remaining"]),
+        }
+        for s in stockouts
+    ])
+    st.dataframe(sdf, width='stretch', hide_index=True)
+
+    if st.button("Analyze with AI", type="primary"):
+        with st.spinner("Asking Groq to assess your stock risks..."):
+            try:
+                analysis = agents.analyze_stockouts(stockouts)
+                st.markdown(analysis)
+            except Exception as e:
+                st.error(f"Analysis failed: {e}")
 
 
 # Restock history

@@ -128,6 +128,54 @@ def list_restocks(limit: int = 50):
     return [dict(r) for r in rows]
 
 
+def predict_stockouts(days: int = 7) -> list[dict]:
+    """Calculate consumption velocity and days-remaining for each ingredient.
+
+    Returns list sorted by days_remaining ascending (most urgent first).
+    Ingredients with zero velocity get days_remaining=None (no recent usage).
+    """
+    with get_conn() as conn:
+        # Sum ingredient usage across all orders in the last N days
+        usage_rows = conn.execute(
+            """SELECT r.ingredient, SUM(oi.quantity * r.qty_per_serving) AS total_used
+               FROM order_items oi
+               JOIN orders o ON oi.order_id = o.id
+               JOIN recipe r ON oi.menu_id = r.menu_id
+               WHERE o.created_at >= datetime('now', ? || ' days')
+               GROUP BY r.ingredient""",
+            (f"-{days}",),
+        ).fetchall()
+
+        inv_rows = conn.execute("SELECT * FROM inventory").fetchall()
+
+    usage_map = {r["ingredient"]: r["total_used"] for r in usage_rows}
+
+    result = []
+    for inv in inv_rows:
+        ing = inv["ingredient"]
+        total_used = usage_map.get(ing, 0.0)
+        daily_velocity = round(total_used / days, 4) if days > 0 else 0.0
+
+        if daily_velocity > 0:
+            days_remaining = round(inv["quantity"] / daily_velocity, 1)
+        else:
+            days_remaining = None  # not used recently
+
+        result.append({
+            "ingredient": ing,
+            "current_qty": round(inv["quantity"], 2),
+            "unit": inv["unit"],
+            "daily_velocity": daily_velocity,
+            "days_remaining": days_remaining,
+            "reorder_threshold": inv["reorder_threshold"],
+            "cost_per_unit": inv["cost_per_unit"],
+        })
+
+    # Sort: items with a days_remaining come first (most urgent), then None
+    result.sort(key=lambda x: (x["days_remaining"] is None, x["days_remaining"] or 0))
+    return result
+
+
 def suggest_restocks() -> list[dict]:
     """For each low-stock item, suggest a quantity to bring it back to ~3x threshold."""
     suggestions = []

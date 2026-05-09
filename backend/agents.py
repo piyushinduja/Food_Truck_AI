@@ -165,6 +165,140 @@ def apply_actions_to_cart(cart: list[dict], actions: list[dict]) -> list[dict]:
 
 
 # --------------------------------------------------------------------------
+# Stockout analyst
+# --------------------------------------------------------------------------
+
+STOCKOUT_SYSTEM = """You are an inventory analyst for a food truck.
+
+You receive JSON with ingredient velocity data: current stock, daily consumption rate, and days until stockout.
+
+Write a concise markdown risk assessment:
+1. List the top 3 most urgent items (days_remaining < 5) with exact numbers
+2. For each urgent item, recommend a specific restock quantity (bring to ~10 days of supply)
+3. A one-line bottom line: overall stock health
+
+Be specific with numbers. Do not mention ingredients with days_remaining=null (not recently used).
+Keep it under 200 words."""
+
+
+def analyze_stockouts(stockout_data: list[dict]) -> str:
+    """Send velocity data to Groq and return a natural-language risk assessment."""
+    key = os.environ.get("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY not set")
+
+    # Only include ingredients with actual velocity data
+    active = [s for s in stockout_data if s["days_remaining"] is not None]
+    if not active:
+        return "No ingredients with recent usage found — place some orders first to build velocity data."
+
+    client = Groq(api_key=key)
+    resp = client.chat.completions.create(
+        model=TEXT_MODEL,
+        messages=[
+            {"role": "system", "content": STOCKOUT_SYSTEM},
+            {"role": "user", "content": json.dumps(active, default=str)},
+        ],
+        temperature=0.3,
+    )
+    return resp.choices[0].message.content or "Analysis failed."
+
+
+# --------------------------------------------------------------------------
+# AI restock cart generator
+# --------------------------------------------------------------------------
+
+RESTOCK_CART_SYSTEM = """You are a purchasing assistant for a food truck.
+
+You receive JSON with two sections:
+- "low_stock": items currently at or below their reorder threshold
+- "velocity": all ingredients with daily consumption rate and days_remaining
+
+Your job: produce a restock shopping cart. Output ONLY valid JSON, no markdown fences.
+
+Schema:
+{
+  "orders": [
+    {
+      "ingredient": "<exact ingredient name from the data>",
+      "suggested_qty": <number — bring to 14 days of supply based on daily_velocity, minimum 1>,
+      "reasoning": "<one sentence: why this quantity, referencing days_remaining or threshold>",
+      "priority": "urgent" | "soon" | "optional"
+    }
+  ]
+}
+
+Rules:
+- Only include ingredients that genuinely need restocking (low_stock items + velocity items with days_remaining < 7)
+- Use daily_velocity to calculate suggested_qty = ceil(daily_velocity * 14 - current_qty)
+- If daily_velocity is 0 or null for a low_stock item, use 3x reorder_threshold as suggested_qty
+- "urgent" = days_remaining < 3 or already below threshold
+- "soon" = days_remaining 3–7
+- "optional" = below threshold but slow moving
+- ingredient names must match exactly
+"""
+
+
+def generate_restock_cart(low_stock: list[dict], stockout_data: list[dict]) -> list[dict]:
+    """Use Groq to build a prioritized restock cart from low-stock and velocity data.
+
+    Returns list of {ingredient, suggested_qty, reasoning, priority, unit, estimated_cost}.
+    """
+    key = os.environ.get("GROQ_API_KEY")
+    if not key:
+        raise RuntimeError("GROQ_API_KEY not set")
+
+    # Build a lookup for unit + cost info
+    inv_lookup = {s["ingredient"]: s for s in stockout_data}
+
+    payload = {
+        "low_stock": low_stock,
+        "velocity": [s for s in stockout_data if s["days_remaining"] is not None or
+                     any(ls["ingredient"] == s["ingredient"] for ls in low_stock)],
+    }
+
+    client = Groq(api_key=key)
+    resp = client.chat.completions.create(
+        model=TEXT_MODEL,
+        messages=[
+            {"role": "system", "content": RESTOCK_CART_SYSTEM},
+            {"role": "user", "content": json.dumps(payload, default=str)},
+        ],
+        temperature=0.1,
+        response_format={"type": "json_object"},
+    )
+
+    content = resp.choices[0].message.content or "{}"
+    try:
+        parsed = json.loads(content)
+        orders = parsed.get("orders", [])
+    except json.JSONDecodeError:
+        return []
+
+    # Enrich with unit and cost info from inventory
+    result = []
+    for order in orders:
+        ing = order.get("ingredient", "")
+        inv_info = inv_lookup.get(ing, {})
+        cost_per_unit = inv_info.get("cost_per_unit", 0)
+        qty = float(order.get("suggested_qty", 0))
+        result.append({
+            "ingredient": ing,
+            "suggested_qty": round(qty, 2),
+            "reasoning": order.get("reasoning", ""),
+            "priority": order.get("priority", "soon"),
+            "unit": inv_info.get("unit", ""),
+            "cost_per_unit": cost_per_unit,
+            "estimated_cost": round(cost_per_unit * qty * 1.15, 2),
+        })
+
+    # Sort by priority
+    priority_rank = {"urgent": 0, "soon": 1, "optional": 2}
+    result.sort(key=lambda x: priority_rank.get(x["priority"], 1))
+    return result
+
+
+# --------------------------------------------------------------------------
 # Owner assistant — tool-using agent
 # --------------------------------------------------------------------------
 
@@ -230,6 +364,25 @@ OWNER_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_daily_brief",
+            "description": "Generate a full AI-written morning brief: today's performance, 7-day trends, top sellers, stock risks, and one action item.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "predict_stockouts",
+            "description": "Calculate ingredient consumption velocity and days-remaining before stockout, based on the last N days of orders.",
+            "parameters": {
+                "type": "object",
+                "properties": {"days": {"type": "integer", "default": 7}},
+            },
+        },
+    },
 ]
 
 
@@ -246,6 +399,11 @@ def _exec_tool(name: str, args: dict) -> Any:
         return inv_mod.suggest_restocks()
     if name == "place_restock_order":
         return inv_mod.place_restock_order(args["ingredient"], args["quantity"])
+    if name == "get_daily_brief":
+        from . import brief as brief_mod
+        return {"brief": brief_mod.generate_daily_brief()}
+    if name == "predict_stockouts":
+        return inv_mod.predict_stockouts(days=args.get("days", 7))
     return {"error": f"unknown tool {name}"}
 
 
