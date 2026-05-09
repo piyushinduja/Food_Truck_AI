@@ -104,6 +104,7 @@ def render_sidebar(view_mode: str) -> None:
     with st.sidebar:
         st.markdown(
             """
+            <a href="https://foodtruckai-vhrxndlgke3kmabfvj2ulr.streamlit.app/" target="_self" style="text-decoration:none;color:inherit;">
             <div class="ec-brand-block">
                 <svg class="ec-brand-mark" viewBox="0 0 140 78" fill="none" aria-hidden="true">
                     <path d="M27 47h79c8.8 0 16-6.9 16-15.5S114.8 16 106 16c-2.4 0-4.6.5-6.6 1.4C94.6 8.6 85.2 3 74.8 3 63.9 3 54.2 9 49.6 18.2A29.7 29.7 0 0 0 37.8 16C22.5 16 10 27.4 10 41.5c0 1.9.2 3.7.7 5.5" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
@@ -114,6 +115,7 @@ def render_sidebar(view_mode: str) -> None:
                 <div class="ec-brand-title">EL CAMINO</div>
                 <div class="ec-brand-subtitle">AI FOOD TRUCK COMMAND</div>
             </div>
+            </a>
             """,
             unsafe_allow_html=True,
         )

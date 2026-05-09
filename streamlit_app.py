@@ -79,9 +79,9 @@ with right:
 st.divider()
 st.caption("Customer and Owner views share the same live SQLite state.")
 
-with st.expander("Admin", expanded=False):
-    if st.button("Reset Database", width='stretch'):
-        reset_db()
-        seed()
-        st.success("Reset complete.")
-        st.rerun()
+# with st.expander("Admin", expanded=False):
+#     if st.button("Reset Database", width='stretch'):
+#         reset_db()
+#         seed()
+#         st.success("Reset complete.")
+#         st.rerun()
