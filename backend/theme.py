@@ -73,9 +73,16 @@ def apply_global_theme() -> None:
             }}
             #MainMenu {{ visibility: hidden; }}
             footer {{ visibility: hidden; }}
+            [data-testid="stToolbar"],
+            [data-testid="stDecoration"],
+            [data-testid="stStatusWidget"],
+            [data-testid="stHeaderActionElements"] {{
+                display: none !important;
+            }}
             header[data-testid="stHeader"] {{
+                display: none !important;
                 background: transparent;
-                height: 0;
+                height: 0 !important;
             }}
             .stApp {{
                 background: radial-gradient(circle at 40% 0%, #0D0D0D 0%, var(--ec-bg) 36%);
@@ -83,9 +90,9 @@ def apply_global_theme() -> None:
                 font-family: "Inter", "Segoe UI", "SF Pro Display", "Helvetica Neue", sans-serif;
             }}
             .main > div {{
-                padding-top: 1.0rem;
-                padding-left: 1.6rem;
-                padding-right: 1.6rem;
+                padding-top: 1.35rem;
+                padding-left: 1.55rem;
+                padding-right: 1.55rem;
             }}
             h1, h2, h3, h4, h5, h6, p, li, label, div, span {{
                 color: var(--ec-text);
@@ -93,21 +100,87 @@ def apply_global_theme() -> None:
                 box-sizing: border-box;
             }}
             [data-testid="stSidebar"] {{
-                background: linear-gradient(180deg, var(--ec-sidebar-bg) 0%, #070707 100%);
-                border-right: 1px solid var(--ec-border);
+                min-width: 252px !important;
+                max-width: 252px !important;
+                background: linear-gradient(180deg, #080808 0%, #050505 100%);
+                border-right: 1px solid rgba(255,255,255,0.28);
+            }}
+            [data-testid="stSidebar"] > div:first-child {{
+                padding: 2.0rem 1.1rem 1.1rem;
+            }}
+            [data-testid="stSidebarHeader"] {{
+                display: none !important;
+                height: 0 !important;
+            }}
+            [data-testid="stSidebarUserContent"] {{
+                padding-top: 0.4rem !important;
             }}
             [data-testid="stSidebarNav"] {{
                 display: none;
             }}
-            [data-testid="stSidebarNav"] a {{
-                color: var(--ec-text-secondary);
-                border-radius: 12px;
-                margin-bottom: 0.25rem;
+            .ec-brand-block {{
+                text-align: center;
+                margin: 0.15rem 0 2.65rem;
+                color: #F2F2F2;
             }}
-            [data-testid="stSidebarNav"] a[aria-current="page"],
-            [data-testid="stSidebarNav"] a:hover {{
-                background: linear-gradient(135deg, var(--ec-red-dark), #A0151B);
+            .ec-brand-mark {{
+                display: block;
+                width: 6.4rem;
+                height: auto;
+                margin: 0 auto 0.28rem;
+                color: #EFEFEF;
+                filter: drop-shadow(0 0 9px rgba(255,255,255,0.12));
+            }}
+            .ec-brand-title {{
+                font-size: 1.34rem;
+                font-weight: 900;
+                font-style: italic;
+                letter-spacing: 0.1em;
+                line-height: 1;
+            }}
+            .ec-brand-subtitle {{
+                margin-top: 0.42rem;
+                color: #A6A6A6;
+                font-size: 0.56rem;
+                font-weight: 800;
+                letter-spacing: 0.17em;
+            }}
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {{
+                color: #C5C6CA;
+                min-height: 2.2rem;
+                padding: 0.38rem 0.88rem;
+                border-radius: 7px;
+                margin: 0.04rem 0 0.1rem;
+                border-left: 2px solid transparent;
+                font-weight: 560;
+                background: transparent;
+                transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+            }}
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] svg {{
+                color: #BFC0C5;
+            }}
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"],
+            [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {{
+                background: linear-gradient(90deg, rgba(217,31,38,0.22), rgba(255,255,255,0.045));
+                border-left-color: var(--ec-red);
                 color: var(--ec-text) !important;
+            }}
+            [data-testid="stSidebar"] hr {{
+                margin: 4.8rem 0 1.2rem;
+            }}
+            .ec-sidebar-kicker {{
+                color: #8D8D91;
+                font-size: 0.64rem;
+                font-weight: 850;
+                letter-spacing: 0.13em;
+                margin: 0 0 0.85rem;
+            }}
+            [data-testid="stSidebar"] [role="radiogroup"] label {{
+                min-height: 2.4rem;
+                padding: 0.35rem 0.15rem;
+            }}
+            [data-testid="stSidebar"] [role="radiogroup"] label p {{
+                font-weight: 650;
             }}
             [data-testid="stVerticalBlockBorderWrapper"],
             [data-testid="stMetric"] {{

@@ -44,16 +44,16 @@ ORDER_DASHBOARD_NAV = [
 ]
 
 OWNER_NAV = [
-    ("Command Dashboard", "🧭", OWNER_PAGE_DASHBOARD),
-    ("Kitchen", "👨‍🍳", OWNER_PAGE_KITCHEN),
-    ("Inventory", "📦", OWNER_PAGE_INVENTORY),
-    ("Purchasing", "🛒", OWNER_PAGE_PURCHASING),
-    ("Sales", "📊", OWNER_PAGE_SALES),
-    ("Revenue", "💰", OWNER_PAGE_REVENUE),
-    ("Assistant", "🤖", OWNER_PAGE_ASSISTANT),
-    ("Autopilot", "🧠", OWNER_PAGE_AUTOPILOT),
-    ("Daily Report", "📋", OWNER_PAGE_BRIEF),
-    ("Settings", "⚙️", OWNER_PAGE_SETTINGS),
+    ("Dashboard", ":material/dashboard:", OWNER_PAGE_DASHBOARD),
+    ("Orders", ":material/receipt_long:", CUSTOMER_PAGE_ORDER),
+    ("Kitchen", ":material/skillet:", OWNER_PAGE_KITCHEN),
+    ("Inventory", ":material/inventory_2:", OWNER_PAGE_INVENTORY),
+    ("Purchasing", ":material/shopping_cart:", OWNER_PAGE_PURCHASING),
+    ("Sales", ":material/insert_chart:", OWNER_PAGE_SALES),
+    ("Revenue", ":material/paid:", OWNER_PAGE_REVENUE),
+    ("Autopilot", ":material/smart_toy:", OWNER_PAGE_AUTOPILOT),
+    ("Reports", ":material/request_quote:", OWNER_PAGE_BRIEF),
+    ("Settings", ":material/settings:", OWNER_PAGE_SETTINGS),
 ]
 
 
@@ -101,14 +101,22 @@ def render_app_shell(view_mode: str) -> None:
 
 
 def render_sidebar(view_mode: str) -> None:
-    cfg = config.get_business_config()
-    open_flag = str(cfg.get("openStatus", "open")).lower() in {"open", "1", "true", "yes", "on"}
-    open_label = "OPEN" if open_flag else "CLOSED"
-
     with st.sidebar:
-        st.markdown("## EL CAMINO")
-        st.caption("AI Food Truck Command")
-        st.divider()
+        st.markdown(
+            """
+            <div class="ec-brand-block">
+                <svg class="ec-brand-mark" viewBox="0 0 140 78" fill="none" aria-hidden="true">
+                    <path d="M27 47h79c8.8 0 16-6.9 16-15.5S114.8 16 106 16c-2.4 0-4.6.5-6.6 1.4C94.6 8.6 85.2 3 74.8 3 63.9 3 54.2 9 49.6 18.2A29.7 29.7 0 0 0 37.8 16C22.5 16 10 27.4 10 41.5c0 1.9.2 3.7.7 5.5" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M37 47c7-17 18-25 33-25 18 0 29 10 37 25" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                    <path d="M47 37l8-7 12 9 9-7 13 12" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M2 30h16M0 38h16M4 46h16" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+                </svg>
+                <div class="ec-brand-title">EL CAMINO</div>
+                <div class="ec-brand-subtitle">AI FOOD TRUCK COMMAND</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         nav = ORDER_DASHBOARD_NAV if view_mode == VIEW_CUSTOMER else OWNER_NAV
         for label, icon, path in nav:
@@ -119,8 +127,9 @@ def render_sidebar(view_mode: str) -> None:
                     _switch(path)
 
         st.divider()
+        st.markdown("<div class='ec-sidebar-kicker'>VIEW MODE</div>", unsafe_allow_html=True)
         selected = st.radio(
-            "Experience",
+            "View Mode",
             ["Customer View", "Owner View"],
             index=0 if view_mode == VIEW_CUSTOMER else 1,
             label_visibility="collapsed",
@@ -129,8 +138,6 @@ def render_sidebar(view_mode: str) -> None:
         if selected_mode != view_mode:
             set_view_mode(selected_mode)
             _switch(CUSTOMER_PAGE_ORDER if selected_mode == VIEW_CUSTOMER else OWNER_PAGE_DASHBOARD)
-
-        st.markdown(f"**Service**: `{open_label}`")
 
 
 def render_top_status_bar() -> None:
