@@ -4,8 +4,7 @@ from __future__ import annotations
 import html
 import math
 from collections import defaultdict
-from datetime import date
-from urllib.parse import urlencode
+from datetime import date, datetime, timedelta
 
 import _path_setup  # noqa: F401
 import streamlit as st
@@ -50,20 +49,7 @@ menu_by_name = {item["name"]: item for item in menu_rows}
 open_now = str(cfg.get("openStatus", "open")).lower() in {"open", "1", "true", "yes", "on"}
 
 if "cart" not in st.session_state:
-    starter_cart: list[dict] = []
-    for name in ("Carne Burrito", "Al Pastor Taco", "Chips & Guacamole"):
-        item = menu_by_name.get(name)
-        if item:
-            starter_cart.append(
-                {
-                    "menu_id": item["id"],
-                    "name": item["name"],
-                    "price": float(item["price"]),
-                    "quantity": 1,
-                    "notes": None,
-                }
-            )
-    st.session_state.cart = starter_cart
+    st.session_state.cart = []
 if "last_order_confirmation" not in st.session_state:
     st.session_state.last_order_confirmation = None
 
@@ -188,42 +174,6 @@ def _active_category() -> str:
         category = category[0] if category else CATEGORIES[0]
     return category if category in CATEGORIES else CATEGORIES[0]
 
-
-def _href(**updates: object) -> str:
-    params = {"category": _active_category()}
-    params.update({key: value for key, value in updates.items() if value is not None})
-    return "/Order?" + urlencode(params)
-
-
-def _handle_query_action() -> None:
-    params = st.query_params
-    action = params.get("cart_action")
-    if isinstance(action, list):
-        action = action[0] if action else None
-    if not action:
-        return
-
-    try:
-        if action == "add":
-            menu_id = int(params.get("menu_id", 0))
-            item = menu_by_id.get(menu_id)
-            if item and bool(item.get("available", 1)):
-                _add_item(item)
-        elif action in {"inc", "dec", "remove"}:
-            line_index = int(params.get("line", -1))
-            if action == "inc":
-                _adjust_line(line_index, 1)
-            elif action == "dec":
-                _adjust_line(line_index, -1)
-            else:
-                _remove_line(line_index)
-    except (TypeError, ValueError):
-        pass
-
-    selected = _active_category()
-    st.query_params.clear()
-    st.query_params["category"] = selected
-    st.rerun()
 
 
 def _apply_order_styles() -> None:
@@ -448,8 +398,7 @@ def _apply_order_styles() -> None:
             .menu-card {
                 border-radius: 11px;
                 overflow: hidden;
-                min-height: 316px;
-                position: relative;
+                min-height: 240px;
             }
             .menu-card img {
                 width: 100%;
@@ -497,23 +446,10 @@ def _apply_order_styles() -> None:
                 gap: 8px;
                 margin-top: 14px;
             }
-            .add-link {
-                position: absolute;
-                right: 16px;
-                bottom: 13px;
-                min-width: 72px;
-                text-align: center;
-                color: #fff !important;
-                text-decoration: none !important;
-                font-weight: 840;
-                border-radius: 7px;
-                padding: 9px 16px;
-                background: linear-gradient(180deg, #d24c40, #a92b24);
-                box-shadow: inset 0 1px rgba(255,255,255,.18);
-            }
-            .add-link.disabled {
-                opacity: .42;
-                pointer-events: none;
+            .stButton > button[kind="secondary"] {
+                min-height: 34px !important;
+                padding: 0 8px !important;
+                font-size: 1rem !important;
             }
             .cart-shell {
                 border-radius: 9px;
@@ -691,10 +627,18 @@ def _icon(name: str) -> str:
     return icons[name]
 
 
+def _ready_time_str(wait_minutes: float) -> str:
+    ready = datetime.now() + timedelta(minutes=wait_minutes)
+    hour = ready.hour % 12 or 12
+    ampm = "AM" if ready.hour < 12 else "PM"
+    return f"{hour}:{ready.strftime('%M')} {ampm}"
+
+
 def _render_header(wait_minutes: float) -> None:
     open_label = "OPEN" if open_now else "CLOSED"
     open_copy = "We're ready to serve you" if open_now else "Ordering is currently paused"
     status_color = "var(--order-green)" if open_now else "var(--order-red)"
+    ready_str = _ready_time_str(wait_minutes)
     st.markdown(
         f"""
         <div class="order-top">
@@ -709,11 +653,11 @@ def _render_header(wait_minutes: float) -> None:
                 <p>{open_copy}</p>
             </div>
             <div class="status-tile">
-                <div class="tile-kicker">EST. WAIT TIME</div>
-                <div class="wait-value"><strong>{int(round(wait_minutes))}</strong><span>min</span></div>
-                <p>Updated just now</p>
+                <div class="tile-kicker">READY BY</div>
+                <div class="wait-value"><strong>{ready_str}</strong></div>
+                <p>~{int(round(wait_minutes))} min wait</p>
             </div>
-            <a class="track-tile" href="/Order_Status">
+            <a class="track-tile" href="/Order_Status" target="_self">
                 {_icon("pin")} <span>Track Order</span>
             </a>
         </div>
@@ -741,11 +685,17 @@ def _render_header(wait_minutes: float) -> None:
 
 
 def _render_categories(active: str) -> None:
-    links = []
-    for category in CATEGORIES:
-        css = "active" if category == active else ""
-        links.append(f'<a class="{css}" href="/Order?{urlencode({"category": category})}">{category}</a>')
-    st.markdown(f'<div class="category-tabs">{"".join(links)}</div>', unsafe_allow_html=True)
+    cols = st.columns(len(CATEGORIES))
+    for i, category in enumerate(CATEGORIES):
+        with cols[i]:
+            if st.button(
+                category,
+                key=f"cat_{category}",
+                type="primary" if category == active else "secondary",
+                width="stretch",
+            ):
+                st.query_params["category"] = category
+                st.rerun()
 
 
 def _render_menu_grid(items: list[dict]) -> None:
@@ -753,54 +703,81 @@ def _render_menu_grid(items: list[dict]) -> None:
         st.markdown('<div class="cart-empty">No items in this category.</div>', unsafe_allow_html=True)
         return
 
-    cards = []
-    for item in items[:6]:
+    cols = st.columns(3)
+    for idx, item in enumerate(items[:6]):
         available = bool(item.get("available", 1))
         prep, cook = _timing(item)
         image = _safe(_image_url(item))
-        add_class = "" if available else " disabled"
-        add_href = _href(cart_action="add", menu_id=item["id"]) if available else "#"
-        cards.append(
-            f'<article class="menu-card">'
-            f'<img src="{image}" alt="{_safe(item["name"])}">'
-            f'<div class="body">'
-            f'<div class="menu-line">'
-            f'<h3>{_safe(item["name"])}</h3>'
-            f'<div class="price">${float(item["price"]):.2f}</div>'
-            f'</div>'
-            f'<div class="desc">{_safe(item.get("description"))}</div>'
-            f'<div class="timing">◷ Prep {prep:.1f}m · Cook {cook:.1f}m</div>'
-            f'<div class="available"><span class="avail-dot"></span>{"Available" if available else "Unavailable"}</div>'
-            f'<a class="add-link{add_class}" href="{add_href}">Add</a>'
-            f'</div>'
-            f'</article>'
-        )
-    st.markdown(f'<div class="menu-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
+        dot_style = "" if available else "background:#888;box-shadow:none;"
+        with cols[idx % 3]:
+            st.markdown(
+                f'<article class="menu-card">'
+                f'<img src="{image}" alt="{_safe(item["name"])}">'
+                f'<div class="body">'
+                f'<div class="menu-line">'
+                f'<h3>{_safe(item["name"])}</h3>'
+                f'<div class="price">${float(item["price"]):.2f}</div>'
+                f'</div>'
+                f'<div class="desc">{_safe(item.get("description"))}</div>'
+                f'<div class="timing">◷ Prep {prep:.1f}m · Cook {cook:.1f}m</div>'
+                f'<div class="available"><span class="avail-dot" style="{dot_style}"></span>'
+                f'{"Available" if available else "Unavailable"}</div>'
+                f'</div>'
+                f'</article>',
+                unsafe_allow_html=True,
+            )
+            if available:
+                if st.button("+ Add", key=f"add_{item['id']}", width="stretch"):
+                    _add_item(item)
+                    st.rerun()
 
 
 def _render_cart(subtotal: float, tax: float, total: float, wait: float, cart_macros: dict, impact_summary: dict | None) -> None:
-    rows = []
+    st.markdown(
+        f'<div class="cart-title">{_icon("bag")} <span>Your Cart</span></div>',
+        unsafe_allow_html=True,
+    )
+
     if st.session_state.cart:
         for index, line in enumerate(st.session_state.cart):
             item = menu_by_id.get(line["menu_id"])
             image = _safe(_image_url(item))
-            rows.append(
-                f'<div class="cart-row">'
-                f'<img src="{image}" alt="{_safe(line["name"])}">'
-                f'<div>'
-                f'<div class="cart-item-name">{_safe(line["name"])}</div>'
-                f'<div class="timing">${float(line["price"]):.2f}</div>'
-                f'</div>'
-                f'<div class="cart-controls">'
-                f'<a href="{_href(cart_action="dec", line=index)}">−</a>'
-                f'<span>{int(line["quantity"])}</span>'
-                f'<a href="{_href(cart_action="inc", line=index)}">+</a>'
-                f'</div>'
-                f'<a class="trash" href="{_href(cart_action="remove", line=index)}">⌫</a>'
-                f'</div>'
+            c_img, c_info, c_dec, c_qty, c_inc, c_del = st.columns([1, 2.6, 0.55, 0.45, 0.55, 0.55])
+            with c_img:
+                st.markdown(
+                    f'<img src="{image}" style="width:60px;height:54px;object-fit:cover;border-radius:8px;margin-top:4px;">',
+                    unsafe_allow_html=True,
+                )
+            with c_info:
+                st.markdown(
+                    f'<div class="cart-item-name" style="margin-top:4px;">{_safe(line["name"])}</div>'
+                    f'<div class="timing">${float(line["price"]):.2f}</div>',
+                    unsafe_allow_html=True,
+                )
+            with c_dec:
+                if st.button("−", key=f"dec_{index}"):
+                    _adjust_line(index, -1)
+                    st.rerun()
+            with c_qty:
+                st.markdown(
+                    f'<div style="text-align:center;line-height:36px;font-weight:850;color:#fff;">'
+                    f'{int(line["quantity"])}</div>',
+                    unsafe_allow_html=True,
+                )
+            with c_inc:
+                if st.button("+", key=f"inc_{index}"):
+                    _adjust_line(index, 1)
+                    st.rerun()
+            with c_del:
+                if st.button("✕", key=f"del_{index}"):
+                    _remove_line(index)
+                    st.rerun()
+            st.markdown(
+                '<hr style="border:0;border-top:1px solid rgba(255,255,255,.07);margin:2px 0 6px;">',
+                unsafe_allow_html=True,
             )
     else:
-        rows.append('<div class="cart-empty">Pick items from the menu to begin your order.</div>')
+        st.markdown('<div class="cart-empty">Pick items from the menu to begin your order.</div>', unsafe_allow_html=True)
 
     impact = ""
     if impact_summary:
@@ -813,10 +790,6 @@ def _render_cart(subtotal: float, tax: float, total: float, wait: float, cart_ma
 
     st.markdown(
         (
-            f'<div class="cart-shell">'
-            f'<div class="cart-title">{_icon("bag")} <span>Your Cart</span></div>'
-            f'{"".join(rows)}'
-            f'<div class="cart-instructions">{_icon("note")} <span>Add a note or special instructions</span></div>'
             f'<div class="cart-total">'
             f'<div class="tile-kicker">This order macros</div>'
             f'<div class="macro-mini">'
@@ -829,18 +802,13 @@ def _render_cart(subtotal: float, tax: float, total: float, wait: float, cart_ma
             f'<div class="total-row"><span>Subtotal</span><strong>${subtotal:.2f}</strong></div>'
             f'<div class="total-row"><span>Tax</span><strong>${tax:.2f}</strong></div>'
             f'<div class="total-main"><strong>Total</strong><strong>${total:.2f}</strong></div>'
-            f'<div class="wait-row"><span>{_icon("clock")} &nbsp; Estimated Wait</span><strong>{int(round(wait))} min</strong></div>'
+            f'<div class="wait-row"><span>{_icon("clock")} &nbsp; Ready At</span><strong>{_ready_time_str(wait)}</strong></div>'
             f'</div>'
         ),
         unsafe_allow_html=True,
     )
 
 
-def _close_cart() -> None:
-    st.markdown(f'<div class="secure">{_icon("lock")} &nbsp; Secure checkout</div></div>', unsafe_allow_html=True)
-
-
-_handle_query_action()
 _apply_order_styles()
 
 sales = analytics.sales_by_item(days=30)
@@ -895,15 +863,15 @@ with cart_col:
         disabled=not bool(st.session_state.get("selected_customer_id")),
     )
     customer_name = st.text_input("Your Name", value=(profile or {}).get("customer_name", ""), placeholder="e.g. Marco", label_visibility="visible")
-    if st.button(f"Place Order   •   ${total:.2f}   →", type="primary", use_container_width=True):
+    if st.button(f"Place Order   •   ${total:.2f}   →", type="primary", width='stretch'):
         _checkout(customer_name)
         st.rerun()
-    _close_cart()
+    st.markdown(f'<div class="secure">{_icon("lock")} &nbsp; Secure checkout</div>', unsafe_allow_html=True)
 
     with st.expander("Voice Order (optional)", expanded=False):
         st.caption("Try: two carne tacos and a horchata.")
         voice_text = st.text_input("Voice command", placeholder="two carne tacos and a horchata")
-        if st.button("Apply Voice Command", use_container_width=True):
+        if st.button("Apply Voice Command", width='stretch'):
             if not voice_text.strip():
                 st.error("Enter a voice command first.")
             else:
@@ -929,7 +897,7 @@ if st.session_state.last_order_confirmation:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Track this order", use_container_width=False):
+    if st.button("Track this order", width='content'):
         st.session_state["order_lookup_default"] = confirm["order_number"]
         if hasattr(st, "switch_page"):
             st.switch_page(CUSTOMER_PAGE_STATUS)

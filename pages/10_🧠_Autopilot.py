@@ -49,7 +49,7 @@ with hero_mid:
         set_autonomy_mode(selected)
         st.rerun()
 with hero_right:
-    if st.button("Run Autopilot Cycle", type="primary", use_container_width=True):
+    if st.button("Run Autopilot Cycle", type="primary", width='stretch'):
         result = run_autopilot_cycle()
         st.success("Cycle complete: " + ", ".join(result["actions"]))
         st.rerun()

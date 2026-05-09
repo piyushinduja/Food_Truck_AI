@@ -76,7 +76,7 @@ with left:
             )
             .properties(height=190)
         )
-        st.altair_chart(bar, use_container_width=True)
+        st.altair_chart(bar, width='stretch')
 
         table_cols = [
             "ingredient",
@@ -87,7 +87,7 @@ with left:
             "expiration_date",
             "status",
         ]
-        st.dataframe(status_df[table_cols], use_container_width=True, hide_index=True)
+        st.dataframe(status_df[table_cols], width='stretch', hide_index=True)
 
 with right:
     render_section_header("Alerts")

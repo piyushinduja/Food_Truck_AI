@@ -45,7 +45,7 @@ if not revenue_df.empty:
         .encode(x=alt.X("day:N", title=None), y=alt.Y("revenue:Q", title="Revenue"), tooltip=["day", "revenue", "num_orders"])
         .properties(height=220)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width='stretch')
 
 left, right = st.columns(2, gap="large")
 with left:

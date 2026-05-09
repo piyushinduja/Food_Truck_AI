@@ -64,7 +64,7 @@ if not menu_df.empty:
     edit = st.data_editor(
         menu_df[["id", "name", "category", "price", "prep_time_minutes", "cook_time_minutes", "available", "sort_order"]],
         hide_index=True,
-        use_container_width=True,
+        width='stretch',
         key="settings_menu",
     )
     if st.button("Save Menu", type="primary"):
@@ -101,7 +101,7 @@ if not nutrition_df.empty:
             ]
         ],
         hide_index=True,
-        use_container_width=True,
+        width='stretch',
         disabled=["menu_item_id", "name", "source"],
         key="settings_menu_nutrition",
     )
@@ -131,7 +131,7 @@ if not inv_df.empty:
     edit = st.data_editor(
         inv_df[["ingredient", "quantity", "unit", "reorder_threshold", "critical_threshold", "expiration_date", "supplier_id", "category", "cost_per_unit"]],
         hide_index=True,
-        use_container_width=True,
+        width='stretch',
         key="settings_inventory",
     )
     if st.button("Save Inventory", type="primary"):
@@ -155,7 +155,7 @@ with get_conn() as conn:
     suppliers = [dict(row) for row in conn.execute("SELECT * FROM suppliers ORDER BY name").fetchall()]
 sup_df = pd.DataFrame(suppliers)
 if not sup_df.empty:
-    edit = st.data_editor(sup_df, hide_index=True, use_container_width=True, key="settings_suppliers")
+    edit = st.data_editor(sup_df, hide_index=True, width='stretch', key="settings_suppliers")
     if st.button("Save Suppliers", type="primary"):
         with get_conn() as conn:
             for _, row in edit.iterrows():
@@ -183,7 +183,7 @@ with get_conn() as conn:
     theme_rows = [dict(row) for row in conn.execute("SELECT key, value FROM theme_config ORDER BY key").fetchall()]
 if theme_rows:
     theme_df = pd.DataFrame(theme_rows)
-    edit = st.data_editor(theme_df, hide_index=True, use_container_width=True, key="settings_theme")
+    edit = st.data_editor(theme_df, hide_index=True, width='stretch', key="settings_theme")
     if st.button("Save Theme", type="primary"):
         with get_conn() as conn:
             for _, row in edit.iterrows():

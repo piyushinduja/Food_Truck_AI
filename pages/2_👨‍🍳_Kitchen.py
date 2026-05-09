@@ -98,17 +98,17 @@ else:
 
                 b1, b2, b3 = st.columns(3)
                 with b1:
-                    if status == "pending" and st.button("Start", key=f"start_{order['id']}", use_container_width=True):
+                    if status == "pending" and st.button("Start", key=f"start_{order['id']}", width='stretch'):
                         orders.advance_status(order["id"])
                         log_agent_event("Kitchen Agent", "warning", "Kitchen status changed", f"{order_number} moved to preparing.", "Start")
                         st.rerun()
                 with b2:
-                    if status == "preparing" and st.button("Ready", key=f"ready_{order['id']}", use_container_width=True):
+                    if status == "preparing" and st.button("Ready", key=f"ready_{order['id']}", width='stretch'):
                         orders.advance_status(order["id"])
                         log_agent_event("Kitchen Agent", "healthy", "Kitchen status changed", f"{order_number} moved to ready.", "Ready")
                         st.rerun()
                 with b3:
-                    if status == "ready" and st.button("Complete", key=f"done_{order['id']}", type="primary", use_container_width=True):
+                    if status == "ready" and st.button("Complete", key=f"done_{order['id']}", type="primary", width='stretch'):
                         orders.advance_status(order["id"])
                         log_agent_event("Kitchen Agent", "healthy", "Kitchen status changed", f"{order_number} completed.", "Complete")
                         st.rerun()

@@ -115,7 +115,7 @@ def render_sidebar(view_mode: str) -> None:
             if hasattr(st, "page_link"):
                 st.page_link(path, label=label, icon=icon)
             else:
-                if st.button(f"{icon} {label}", use_container_width=True, key=f"nav_{label}"):
+                if st.button(f"{icon} {label}", width='stretch', key=f"nav_{label}"):
                     _switch(path)
 
         st.divider()
@@ -225,7 +225,7 @@ def render_section_header(title: str, caption: str | None = None) -> None:
 
 
 def render_primary_button(label: str, key: str | None = None, use_container_width: bool = True) -> bool:
-    return st.button(label, key=key, type="primary", use_container_width=use_container_width)
+    return st.button(label, key=key, type="primary", width="stretch" if use_container_width else "content")
 
 
 def render_warning_banner(text: str) -> None:

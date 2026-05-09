@@ -99,7 +99,7 @@ with middle:
             )
             .properties(height=180)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width='stretch')
 
     render_section_header("Purchasing / Restock")
     active_po = [po for po in po_queue if po["status"] in {"suggested", "approved"}]
@@ -151,7 +151,7 @@ with trend_left:
             .encode(x=alt.X("day:N", title=None), y=alt.Y("revenue:Q", title="Revenue"), tooltip=["day", "revenue", "num_orders"])
             .properties(height=180)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width='stretch')
 
 with trend_mid:
     if not profit_by_day.empty:
@@ -161,7 +161,7 @@ with trend_mid:
             .encode(x=alt.X("day:N", title=None), y=alt.Y("profit:Q", title="Profit"), tooltip=["day", "profit"])
             .properties(height=180)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width='stretch')
 
 with trend_right:
     if not sales_by_item.empty:
@@ -171,4 +171,4 @@ with trend_right:
             .encode(x=alt.X("units_sold:Q", title="Units"), y=alt.Y("name:N", sort="-x", title=None), tooltip=["name", "units_sold", "revenue"])
             .properties(height=180)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width='stretch')

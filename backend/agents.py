@@ -13,6 +13,7 @@ from typing import Any
 from groq import Groq
 
 from . import analytics
+from . import instacart
 from . import inventory as inv_mod
 from . import kitchen
 from . import macro_recommendations
@@ -367,6 +368,19 @@ OWNER_TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "create_instacart_restock_link",
+            "description": (
+                "Generate a real Instacart shopping list URL pre-loaded with all "
+                "current low-stock items. Returns a URL the owner can tap to "
+                "complete checkout in the Instacart app on any store (Walmart, "
+                "Costco, local grocer, etc)."
+            ),
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 
@@ -415,6 +429,8 @@ def _exec_tool(name: str, args: dict, allow_mutation: bool) -> Any:
         return kitchen.get_active_kitchen_orders()
     if name == "get_late_orders":
         return [o for o in kitchen.get_active_kitchen_orders() if o.get("is_late")]
+    if name == "create_instacart_restock_link":
+        return instacart.restock_link_from_low_stock()
     return {"error": f"unknown_tool:{name}"}
 
 

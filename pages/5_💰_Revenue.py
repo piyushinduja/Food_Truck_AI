@@ -53,7 +53,7 @@ with row[0]:
             )
             .properties(height=260)
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width='stretch')
 
 with row[1]:
     if not profit_series.empty:
@@ -67,7 +67,7 @@ with row[1]:
             )
             .properties(height=260)
         )
-        st.altair_chart(line, use_container_width=True)
+        st.altair_chart(line, width='stretch')
 
 render_section_header("Supplier Spending")
 if supplier_spending.empty:
@@ -83,4 +83,4 @@ else:
         )
         .properties(height=220)
     )
-    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, width='stretch')

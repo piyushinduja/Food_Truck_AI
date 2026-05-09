@@ -53,7 +53,7 @@ else:
             )
             .properties(height=280)
         )
-        st.altair_chart(bar, use_container_width=True)
+        st.altair_chart(bar, width='stretch')
 
     with top[1]:
         if category:
@@ -68,9 +68,9 @@ else:
                 )
                 .properties(height=280)
             )
-            st.altair_chart(donut, use_container_width=True)
+            st.altair_chart(donut, width='stretch')
 
-    st.dataframe(df.rename(columns={"name": "item"}), use_container_width=True, hide_index=True)
+    st.dataframe(df.rename(columns={"name": "item"}), width='stretch', hide_index=True)
 
 render_section_header("Macro Analytics")
 mc1, mc2, mc3, mc4 = st.columns(4)
@@ -87,6 +87,6 @@ if high_protein_sales:
     hp_df = pd.DataFrame(high_protein_sales)
     st.dataframe(
         hp_df[["name", "category", "calories", "protein_g", "units_sold", "revenue"]],
-        use_container_width=True,
+        width='stretch',
         hide_index=True,
     )

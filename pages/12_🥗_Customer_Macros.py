@@ -170,7 +170,7 @@ with dashboard_tab:
                     .encode(theta="calories:Q", color=alt.Color("macro:N", scale=alt.Scale(range=["#D91F26", "#B8B8B8", "#2F8F57"])), tooltip=["macro", "grams", "calories"])
                     .properties(height=280)
                 )
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(chart, width='stretch')
             else:
                 st.caption("No macro intake logged today.")
         with right:
@@ -181,12 +181,12 @@ with dashboard_tab:
                 .encode(x=alt.X("summary_date:N", title=None), y=alt.Y("calories_consumed:Q", title="Calories"), tooltip=["summary_date", "calories_consumed", "protein_consumed_g"])
                 .properties(height=280)
             )
-            st.altair_chart(trend, use_container_width=True)
+            st.altair_chart(trend, width='stretch')
 
         render_section_header("Recent Macro Orders")
         recent = macros.get_recent_macro_orders(profile["id"], days=7)
         if recent:
-            st.dataframe(pd.DataFrame(recent), use_container_width=True, hide_index=True)
+            st.dataframe(pd.DataFrame(recent), width='stretch', hide_index=True)
         else:
             st.caption("No macro-tracked orders yet.")
 
@@ -252,7 +252,7 @@ with order_tab:
                 except Exception as exc:
                     st.warning(f"AI explanation unavailable: {exc}")
 
-            if st.button("Add Recommended Order to Cart", use_container_width=True):
+            if st.button("Add Recommended Order to Cart", width='stretch'):
                 _save_recommendation_to_cart(recommendation)
                 st.success("Recommended items added to cart.")
 
@@ -263,7 +263,7 @@ with history_tab:
     else:
         days = st.selectbox("History window", [1, 2, 7, 30], index=2, format_func=lambda d: "Today" if d == 1 else "Yesterday + today" if d == 2 else f"Last {d} days")
         history = pd.DataFrame(macros.get_macro_history(profile["id"], days=days))
-        st.dataframe(history, use_container_width=True, hide_index=True)
+        st.dataframe(history, width='stretch', hide_index=True)
         if not history.empty:
             protein = (
                 alt.Chart(history)
@@ -271,7 +271,7 @@ with history_tab:
                 .encode(x=alt.X("summary_date:N", title=None), y=alt.Y("protein_consumed_g:Q", title="Protein g"), tooltip=["summary_date", "protein_consumed_g", "protein_target_g"])
                 .properties(height=260)
             )
-            st.altair_chart(protein, use_container_width=True)
+            st.altair_chart(protein, width='stretch')
 
         if st.button("What should I order later today?"):
             try:

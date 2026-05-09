@@ -52,7 +52,7 @@ with left:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open Customer View", type="primary", use_container_width=True):
+    if st.button("Open Customer View", type="primary", width='stretch'):
         set_view_mode(VIEW_CUSTOMER)
         if hasattr(st, "switch_page"):
             st.switch_page(CUSTOMER_PAGE_ORDER)
@@ -71,7 +71,7 @@ with right:
         """,
         unsafe_allow_html=True,
     )
-    if st.button("Open Owner View", type="primary", use_container_width=True):
+    if st.button("Open Owner View", type="primary", width='stretch'):
         set_view_mode(VIEW_OWNER)
         if hasattr(st, "switch_page"):
             st.switch_page(OWNER_PAGE_DASHBOARD)
@@ -80,7 +80,7 @@ st.divider()
 st.caption("Customer and Owner views share the same live SQLite state.")
 
 with st.expander("Admin", expanded=False):
-    if st.button("Reset Database", use_container_width=True):
+    if st.button("Reset Database", width='stretch'):
         reset_db()
         seed()
         st.success("Reset complete.")

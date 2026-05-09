@@ -76,7 +76,7 @@ with left:
                     "Create Mock PO",
                     key=f"create_po_{suggestion['ingredient']}",
                     type="primary",
-                    use_container_width=True,
+                    width='stretch',
                 ):
                     result = purchasing.create_purchase_order_from_suggestion(
                         ingredient=suggestion["ingredient"],
@@ -114,7 +114,7 @@ with right:
                 for suggestion in suggestions[:8]
             ]
         )
-        st.dataframe(supplier_df, use_container_width=True, hide_index=True)
+        st.dataframe(supplier_df, width='stretch', hide_index=True)
 
 render_section_header("Purchase Order Queue")
 if not pos:
@@ -128,14 +128,14 @@ else:
                 st.markdown(f"- {item['ingredient']}: {item['quantity']} {item['unit']} · ${item['estimated_cost']:.2f}")
             b1, b2, b3 = st.columns(3)
             with b1:
-                if po["status"] == "suggested" and st.button("Approve", key=f"approve_{po['id']}", use_container_width=True):
+                if po["status"] == "suggested" and st.button("Approve", key=f"approve_{po['id']}", width='stretch'):
                     purchasing.approve_purchase_order(po["id"])
                     st.rerun()
             with b2:
-                if po["status"] in {"suggested", "approved"} and st.button("Reject", key=f"reject_{po['id']}", use_container_width=True):
+                if po["status"] in {"suggested", "approved"} and st.button("Reject", key=f"reject_{po['id']}", width='stretch'):
                     purchasing.reject_purchase_order(po["id"])
                     st.rerun()
             with b3:
-                if po["status"] == "approved" and st.button("Mark Received", key=f"receive_{po['id']}", type="primary", use_container_width=True):
+                if po["status"] == "approved" and st.button("Mark Received", key=f"receive_{po['id']}", type="primary", width='stretch'):
                     purchasing.mark_purchase_order_received(po["id"])
                     st.rerun()
