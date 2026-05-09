@@ -4,12 +4,13 @@ from __future__ import annotations
 import html
 import math
 from collections import defaultdict
+from datetime import date
 from urllib.parse import urlencode
 
 import _path_setup  # noqa: F401
 import streamlit as st
 
-from backend import agents, analytics, config, orders
+from backend import agents, analytics, config, macros, nutrition, orders
 from backend.autopilot import log_agent_event
 from backend.bootstrap import ensure_app_ready
 from backend.ui_components import (
@@ -87,6 +88,17 @@ def _cart_total() -> float:
     return sum(float(line["price"]) * int(line["quantity"]) for line in st.session_state.cart)
 
 
+def _cart_macro_totals() -> dict:
+    return nutrition.calculate_cart_nutrition(st.session_state.cart)
+
+
+def _selected_profile() -> dict | None:
+    customer_id = st.session_state.get("selected_customer_id")
+    if not customer_id:
+        return None
+    return macros.get_customer_profile(int(customer_id))
+
+
 def _cart_wait_minutes() -> float:
     durations: list[float] = []
     for line in st.session_state.cart:
@@ -144,6 +156,8 @@ def _checkout(customer_name: str) -> None:
         cart=st.session_state.cart,
         customer_name=(customer_name.strip() or "Guest"),
         source="customer_view",
+        customer_id=st.session_state.get("selected_customer_id"),
+        track_macros=bool(st.session_state.get("track_order_macros")),
     )
     if not result.get("ok"):
         st.error(f"Could not place order: {result.get('error')}")
@@ -158,6 +172,14 @@ def _checkout(customer_name: str) -> None:
         f"Order {result['order_number']} placed from customer view.",
         "Track Order",
     )
+    if result.get("macro_log"):
+        log_agent_event(
+            "Customer Macro Agent",
+            "healthy",
+            "Order macro logged",
+            f"Order {result['order_number']} updated the customer macro log.",
+            "Macro Log",
+        )
 
 
 def _active_category() -> str:
@@ -565,6 +587,31 @@ def _apply_order_styles() -> None:
                 padding: 18px 20px;
                 margin-bottom: 14px;
             }
+            .macro-mini {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 8px;
+                margin: 14px 0;
+            }
+            .macro-mini div {
+                border: 1px solid var(--order-line-soft);
+                border-radius: 7px;
+                padding: 9px 8px;
+                background: rgba(255,255,255,.035);
+            }
+            .macro-mini span {
+                display: block;
+                color: var(--order-muted);
+                font-size: .72rem;
+                text-transform: uppercase;
+                letter-spacing: .04em;
+            }
+            .macro-mini strong {
+                display: block;
+                color: #fffaf2;
+                font-size: .92rem;
+                margin-top: 2px;
+            }
             .total-row {
                 display: flex;
                 justify-content: space-between;
@@ -731,7 +778,7 @@ def _render_menu_grid(items: list[dict]) -> None:
     st.markdown(f'<div class="menu-grid">{"".join(cards)}</div>', unsafe_allow_html=True)
 
 
-def _render_cart(subtotal: float, tax: float, total: float, wait: float) -> None:
+def _render_cart(subtotal: float, tax: float, total: float, wait: float, cart_macros: dict, impact_summary: dict | None) -> None:
     rows = []
     if st.session_state.cart:
         for index, line in enumerate(st.session_state.cart):
@@ -755,6 +802,15 @@ def _render_cart(subtotal: float, tax: float, total: float, wait: float) -> None
     else:
         rows.append('<div class="cart-empty">Pick items from the menu to begin your order.</div>')
 
+    impact = ""
+    if impact_summary:
+        impact = (
+            f'<div class="timing" style="margin-top:8px;">'
+            f'After this order: {max(0, float(impact_summary.get("calories_remaining") or 0) - cart_macros["calories"]):.0f} cal, '
+            f'{max(0, float(impact_summary.get("protein_remaining_g") or 0) - cart_macros["protein_g"]):.0f}g protein remaining'
+            f'</div>'
+        )
+
     st.markdown(
         (
             f'<div class="cart-shell">'
@@ -762,6 +818,14 @@ def _render_cart(subtotal: float, tax: float, total: float, wait: float) -> None
             f'{"".join(rows)}'
             f'<div class="cart-instructions">{_icon("note")} <span>Add a note or special instructions</span></div>'
             f'<div class="cart-total">'
+            f'<div class="tile-kicker">This order macros</div>'
+            f'<div class="macro-mini">'
+            f'<div><span>Cal</span><strong>{cart_macros["calories"]:.0f}</strong></div>'
+            f'<div><span>Protein</span><strong>{cart_macros["protein_g"]:.0f}g</strong></div>'
+            f'<div><span>Carbs</span><strong>{cart_macros["carbs_g"]:.0f}g</strong></div>'
+            f'<div><span>Fat</span><strong>{cart_macros["fat_g"]:.0f}g</strong></div>'
+            f'</div>'
+            f'{impact}'
             f'<div class="total-row"><span>Subtotal</span><strong>${subtotal:.2f}</strong></div>'
             f'<div class="total-row"><span>Tax</span><strong>${tax:.2f}</strong></div>'
             f'<div class="total-main"><strong>Total</strong><strong>${total:.2f}</strong></div>'
@@ -812,8 +876,25 @@ with cart_col:
     tax_rate = float(cfg.get("taxRate", 0.0825) or 0.0825)
     tax = math.floor(subtotal * tax_rate * 100) / 100
     total = round(subtotal + tax, 2)
-    _render_cart(subtotal, tax, total, wait)
-    customer_name = st.text_input("Your Name", placeholder="e.g. Marco", label_visibility="visible")
+    cart_macros = _cart_macro_totals()
+    profile = _selected_profile()
+    today_summary = macros.get_daily_macro_summary(profile["id"], date.today().isoformat()) if profile else None
+    _render_cart(subtotal, tax, total, wait, cart_macros, today_summary)
+    profiles = macros.list_customer_profiles()
+    if profiles:
+        labels = ["No macro profile"] + [f"{p['customer_name']} #{p['id']}" for p in profiles]
+        selected_label = st.selectbox("Track macros for", labels, index=0)
+        selected_profile = profiles[labels.index(selected_label) - 1] if selected_label != "No macro profile" else None
+        st.session_state["selected_customer_id"] = selected_profile["id"] if selected_profile else None
+    else:
+        st.caption("Create a macro profile on the Macros page to track this order.")
+        st.session_state["selected_customer_id"] = None
+    st.session_state["track_order_macros"] = st.checkbox(
+        "Track this order toward macros",
+        value=bool(st.session_state.get("selected_customer_id")),
+        disabled=not bool(st.session_state.get("selected_customer_id")),
+    )
+    customer_name = st.text_input("Your Name", value=(profile or {}).get("customer_name", ""), placeholder="e.g. Marco", label_visibility="visible")
     if st.button(f"Place Order   •   ${total:.2f}   →", type="primary", use_container_width=True):
         _checkout(customer_name)
         st.rerun()

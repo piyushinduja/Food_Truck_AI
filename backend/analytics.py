@@ -306,3 +306,44 @@ def dashboard_summary() -> dict:
         "top_selling_item": top_item,
         "alerts_count": len(inventory_mod.get_inventory_alerts()),
     }
+
+
+def customer_macro_demand_summary(days: int = 30) -> dict:
+    from . import macro_recommendations, macros
+
+    metrics = macro_recommendations.macro_owner_metrics(days=days)
+    activity = macros.macro_agent_activity_today()
+    return {
+        **metrics,
+        "macro_profiles_created_today": int(activity.get("Macro profile created", 0)),
+        "macro_orders_suggested_today": int(activity.get("Meal recommendation generated", 0))
+        + int(activity.get("Full-day recommendation generated", 0)),
+        "macro_logs_updated_today": int(activity.get("Order macro logged", 0)),
+        "swap_suggestions_today": int(activity.get("Macro suggestion generated", 0)),
+    }
+
+
+def high_protein_item_sales(days: int = 30) -> list[dict]:
+    since = _since_date(days)
+    with get_conn() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                m.name,
+                m.category,
+                mn.calories,
+                mn.protein_g,
+                COALESCE(SUM(oi.quantity), 0) AS units_sold,
+                COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS revenue
+            FROM menu m
+            JOIN menu_nutrition mn ON mn.menu_item_id = m.id
+            LEFT JOIN order_items oi ON oi.menu_id = m.id
+            LEFT JOIN orders o ON o.id = oi.order_id
+                AND date(o.created_at) >= ?
+                AND o.status != 'cancelled'
+            GROUP BY m.id
+            ORDER BY (mn.protein_g / NULLIF(mn.calories, 0)) DESC, units_sold DESC
+            """,
+            (since,),
+        ).fetchall()
+    return [dict(row) for row in rows]

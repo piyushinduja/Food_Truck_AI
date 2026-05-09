@@ -22,6 +22,8 @@ render_section_header("Sales", "Top sellers, low sellers, category mix, and dema
 days = st.slider("Time window (days)", min_value=1, max_value=60, value=7)
 sales = analytics.sales_by_item(days=days)
 category = analytics.revenue_by_category(days=days)
+macro_metrics = analytics.customer_macro_demand_summary(days=days)
+high_protein_sales = analytics.high_protein_item_sales(days=days)
 
 if not sales:
     st.info("No sales data for this window.")
@@ -69,3 +71,22 @@ else:
             st.altair_chart(donut, use_container_width=True)
 
     st.dataframe(df.rename(columns={"name": "item"}), use_container_width=True, hide_index=True)
+
+render_section_header("Macro Analytics")
+mc1, mc2, mc3, mc4 = st.columns(4)
+with mc1:
+    render_metric_card("Macro Customers", macro_metrics["macro_tracking_customers"])
+with mc2:
+    render_metric_card("Avg Calories / Macro Order", f"{macro_metrics['average_calories_per_macro_order']:.0f}")
+with mc3:
+    render_metric_card("Recommendation Conversion", f"{macro_metrics['recommendation_conversion_rate']:.1f}%")
+with mc4:
+    render_metric_card("AI Suggestions", macro_metrics["ai_suggestions_generated"])
+
+if high_protein_sales:
+    hp_df = pd.DataFrame(high_protein_sales)
+    st.dataframe(
+        hp_df[["name", "category", "calories", "protein_g", "units_sold", "revenue"]],
+        use_container_width=True,
+        hide_index=True,
+    )

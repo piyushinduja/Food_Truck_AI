@@ -76,6 +76,7 @@ def _agent_status_rows() -> list[dict]:
     late = sum(1 for order in queue if order.get("is_late"))
     purchasing_items = purchasing.get_restock_suggestions()
     summary = analytics.dashboard_summary()
+    macro_summary = analytics.customer_macro_demand_summary()
 
     status_rows.append(
         {
@@ -84,6 +85,15 @@ def _agent_status_rows() -> list[dict]:
             "summary": f"{summary['active_orders']} active orders in service pipeline.",
             "alerts": [],
             "recommended_action": "Monitor checkout throughput.",
+        }
+    )
+    status_rows.append(
+        {
+            "agent_name": "Customer Macro Agent",
+            "status": "healthy" if macro_summary["macro_tracking_customers"] else "attention",
+            "summary": f"{macro_summary['macro_tracking_customers']} macro-tracking customer(s), {macro_summary['macro_orders_suggested_today']} recommendation(s) today.",
+            "alerts": [],
+            "recommended_action": "Help customers build orders from remaining macros.",
         }
     )
     status_rows.append(

@@ -236,6 +236,19 @@ RECIPES = {
     "Horchata": [("rice_milk", 350), ("cinnamon", 2), ("sugar", 15)],
 }
 
+MENU_NUTRITION = {
+    "Carne Asada Taco": {"calories": 210, "protein_g": 15, "carbs_g": 21, "fat_g": 8, "fiber_g": 3, "sugar_g": 2, "sodium_mg": 430},
+    "Al Pastor Taco": {"calories": 230, "protein_g": 14, "carbs_g": 23, "fat_g": 9, "fiber_g": 2, "sugar_g": 4, "sodium_mg": 470},
+    "Veggie Taco": {"calories": 190, "protein_g": 8, "carbs_g": 25, "fat_g": 7, "fiber_g": 6, "sugar_g": 3, "sodium_mg": 360},
+    "Carne Burrito": {"calories": 760, "protein_g": 38, "carbs_g": 82, "fat_g": 30, "fiber_g": 11, "sugar_g": 5, "sodium_mg": 1260},
+    "Veggie Burrito": {"calories": 650, "protein_g": 24, "carbs_g": 88, "fat_g": 22, "fiber_g": 15, "sugar_g": 6, "sodium_mg": 980},
+    "Chips & Guacamole": {"calories": 440, "protein_g": 7, "carbs_g": 42, "fat_g": 28, "fiber_g": 9, "sugar_g": 3, "sodium_mg": 520},
+    "Loaded Nachos": {"calories": 820, "protein_g": 24, "carbs_g": 78, "fat_g": 46, "fiber_g": 12, "sugar_g": 5, "sodium_mg": 1420},
+    "Coke": {"calories": 140, "protein_g": 0, "carbs_g": 39, "fat_g": 0, "fiber_g": 0, "sugar_g": 39, "sodium_mg": 45},
+    "Lemonade": {"calories": 160, "protein_g": 0, "carbs_g": 41, "fat_g": 0, "fiber_g": 0, "sugar_g": 38, "sodium_mg": 20},
+    "Horchata": {"calories": 230, "protein_g": 3, "carbs_g": 48, "fat_g": 4, "fiber_g": 1, "sugar_g": 32, "sodium_mg": 85},
+}
+
 
 def seed() -> None:
     init_db()
@@ -341,6 +354,38 @@ def seed() -> None:
                     """,
                     (menu_id, ingredient, qty),
                 )
+
+        for menu_name, nutrition in MENU_NUTRITION.items():
+            menu_id = name_to_id[menu_name]
+            conn.execute(
+                """
+                INSERT INTO menu_nutrition (
+                    menu_item_id, calories, protein_g, carbs_g, fat_g,
+                    fiber_g, sugar_g, sodium_mg, source, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'seeded_estimate', datetime('now'))
+                ON CONFLICT(menu_item_id) DO UPDATE SET
+                    calories = excluded.calories,
+                    protein_g = excluded.protein_g,
+                    carbs_g = excluded.carbs_g,
+                    fat_g = excluded.fat_g,
+                    fiber_g = excluded.fiber_g,
+                    sugar_g = excluded.sugar_g,
+                    sodium_mg = excluded.sodium_mg,
+                    source = excluded.source,
+                    updated_at = excluded.updated_at
+                """,
+                (
+                    menu_id,
+                    nutrition["calories"],
+                    nutrition["protein_g"],
+                    nutrition["carbs_g"],
+                    nutrition["fat_g"],
+                    nutrition["fiber_g"],
+                    nutrition["sugar_g"],
+                    nutrition["sodium_mg"],
+                ),
+            )
 
         for key, value in DEFAULT_THEME_TOKENS.items():
             conn.execute(

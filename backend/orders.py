@@ -38,7 +38,13 @@ def _next_order_number(conn) -> str:
     return f"EC-{next_num:04d}"
 
 
-def create_order(cart: list[dict], customer_name: str = "guest", source: str = "kiosk") -> dict:
+def create_order(
+    cart: list[dict],
+    customer_name: str = "guest",
+    source: str = "kiosk",
+    customer_id: int | None = None,
+    track_macros: bool = False,
+) -> dict:
     """Create a paid order, deduct inventory, and generate kitchen timeline."""
     init_db()
     if not cart:
@@ -112,6 +118,11 @@ def create_order(cart: list[dict], customer_name: str = "guest", source: str = "
     deduction = inv_mod.deduct_for_order(order_id)
     kitchen_mod.save_kitchen_timeline(order_id)
     eta = kitchen_mod.estimate_ready_time(order_id)
+    macro_log = None
+    if track_macros and customer_id:
+        from . import macros as macros_mod
+
+        macro_log = macros_mod.log_order_macros(customer_id, order_id)
 
     return {
         "ok": True,
@@ -122,6 +133,7 @@ def create_order(cart: list[dict], customer_name: str = "guest", source: str = "
         "deduction": deduction,
         "estimated_ready_at": eta["estimated_ready_at"] if eta else None,
         "estimated_wait_minutes": eta["estimated_wait_minutes"] if eta else None,
+        "macro_log": macro_log,
     }
 
 

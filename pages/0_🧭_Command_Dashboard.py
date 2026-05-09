@@ -31,6 +31,7 @@ render_section_header("El Camino Command", "Operational state at a glance")
 render_top_status_bar()
 
 summary = analytics.dashboard_summary()
+macro_demand = analytics.customer_macro_demand_summary()
 active_orders = kitchen.get_active_kitchen_orders()
 alerts = inventory.get_inventory_alerts()
 suggestions = purchasing.get_restock_suggestions()
@@ -115,6 +116,13 @@ with right:
         status="critical" if summary["estimated_profit_today"] < 0 else "healthy",
     )
     render_metric_card("Avg Ticket", f"${summary['avg_ticket_today']:.2f}")
+
+    render_section_header("Customer Macro Demand")
+    render_metric_card("Tracking Customers", macro_demand["macro_tracking_customers"])
+    requested_strategy = macro_demand["most_requested_macro_strategy"]
+    render_metric_card("Requested Strategy", requested_strategy.title() if requested_strategy else "--")
+    render_metric_card("Macro-Friendly Item", macro_demand["most_macro_friendly_item"] or "--")
+    render_metric_card("Recommended Today", macro_demand["macro_orders_suggested_today"])
 
     render_section_header("Autopilot / Agent Activity")
     mode_label = get_autonomy_mode().title()

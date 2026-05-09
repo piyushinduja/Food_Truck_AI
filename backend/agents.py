@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+from datetime import date
 from typing import Any
 
 from groq import Groq
@@ -14,6 +15,9 @@ from groq import Groq
 from . import analytics
 from . import inventory as inv_mod
 from . import kitchen
+from . import macro_recommendations
+from . import macros
+from . import nutrition
 from . import orders as orders_mod
 from . import purchasing
 
@@ -157,6 +161,103 @@ def apply_actions_to_cart(cart: list[dict], actions: list[dict]) -> list[dict]:
                     break
 
     return cart
+
+
+# --------------------------------------------------------------------------
+# Customer macro agent
+# --------------------------------------------------------------------------
+
+MACRO_SYSTEM = """You are El Camino's customer macro ordering assistant.
+
+Rules:
+- Use only the menu items and nutrition values in the provided data.
+- Do not invent food items, calories, protein, carbs, or fat values.
+- If the current menu cannot satisfy a target, say so clearly.
+- Give practical food-order suggestions using available items only.
+- Keep advice short and focused on ordering.
+- Do not give medical advice, health claims, or weight-loss guarantees.
+"""
+
+
+def _save_macro_suggestion(customer_id: int | None, suggestion_date: str, context: dict, suggestion: str, recommended_items: list[dict] | None = None) -> None:
+    from .db import get_conn
+
+    with get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO macro_ai_suggestions (
+                customer_id, suggestion_date, context, suggestion, recommended_items_json
+            )
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                customer_id,
+                suggestion_date,
+                json.dumps(context, default=str),
+                suggestion,
+                json.dumps(recommended_items or [], default=str),
+            ),
+        )
+
+
+def _macro_chat(context: dict, prompt: str) -> str:
+    client = _client()
+    resp = client.chat.completions.create(
+        model=TEXT_MODEL,
+        messages=[
+            {"role": "system", "content": MACRO_SYSTEM},
+            {"role": "user", "content": json.dumps({"context": context, "request": prompt}, default=str)},
+        ],
+        temperature=0.15,
+    )
+    return resp.choices[0].message.content or ""
+
+
+def macro_suggestion_agent(customer_id: int, target_date: str) -> dict:
+    recommendation = macro_recommendations.recommend_meal_for_macros(customer_id, target_date, "use today remaining")
+    context = {
+        "daily_summary": macros.get_daily_macro_summary(customer_id, target_date),
+        "history_7d": macros.get_macro_history(customer_id, days=7),
+        "available_menu": nutrition.list_menu_with_nutrition(include_unavailable=False),
+        "recommendation": recommendation,
+    }
+    reply = _macro_chat(context, "What should this customer order later today to stay on track?")
+    _save_macro_suggestion(
+        customer_id,
+        target_date,
+        context,
+        reply,
+        (recommendation.get("recommendation") or {}).get("recommended_items", []),
+    )
+    from .autopilot import log_agent_event
+
+    log_agent_event("Customer Macro Agent", "healthy", "Macro suggestion generated", f"AI suggestion generated for customer #{customer_id}.", "Macro Suggestion")
+    return {"reply": reply, "context": context}
+
+
+def explain_macro_order_recommendation(customer_id: int, recommendation: dict) -> dict:
+    target_date = date.today().isoformat()
+    context = {
+        "daily_summary": macros.get_daily_macro_summary(customer_id, target_date),
+        "available_menu": nutrition.list_menu_with_nutrition(include_unavailable=False),
+        "recommendation": recommendation,
+    }
+    reply = _macro_chat(context, "Explain why this recommendation fits the customer's macro target.")
+    _save_macro_suggestion(customer_id, target_date, context, reply, recommendation.get("recommended_items", []))
+    return {"reply": reply, "context": context}
+
+
+def suggest_macro_cart_swaps(customer_id: int, cart_items: list[dict]) -> dict:
+    target_date = date.today().isoformat()
+    swaps = macro_recommendations.suggest_macro_swaps(cart_items, customer_id, target_date)
+    context = {
+        "daily_summary": macros.get_daily_macro_summary(customer_id, target_date),
+        "available_menu": nutrition.list_menu_with_nutrition(include_unavailable=False),
+        "swaps": swaps,
+    }
+    reply = _macro_chat(context, "Suggest grounded cart swaps for this macro target.")
+    _save_macro_suggestion(customer_id, target_date, context, reply, swaps.get("alternatives", []))
+    return {"reply": reply, "context": context}
 
 
 # --------------------------------------------------------------------------

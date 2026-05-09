@@ -11,3 +11,9 @@ def ensure_app_ready() -> None:
         row = conn.execute("SELECT COUNT(*) AS c FROM menu").fetchone()
     if not row or int(row["c"]) == 0:
         seed()
+        return
+
+    with get_conn() as conn:
+        nutrition_row = conn.execute("SELECT COUNT(*) AS c FROM menu_nutrition").fetchone()
+    if not nutrition_row or int(nutrition_row["c"]) == 0:
+        seed()

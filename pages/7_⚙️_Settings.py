@@ -6,7 +6,7 @@ import _path_setup  # noqa: F401
 import pandas as pd
 import streamlit as st
 
-from backend import config, inventory, menu
+from backend import config, inventory, menu, nutrition
 from backend.autopilot import get_autonomy_mode, set_autonomy_mode
 from backend.bootstrap import ensure_app_ready
 from backend.db import get_conn
@@ -81,6 +81,49 @@ if not menu_df.empty:
         menu.recalculate_menu_availability()
         st.success("Menu updated")
         st.rerun()
+
+render_section_header("Menu Nutrition")
+nutrition_df = pd.DataFrame(nutrition.list_menu_with_nutrition(include_unavailable=True))
+if not nutrition_df.empty:
+    edit = st.data_editor(
+        nutrition_df[
+            [
+                "menu_item_id",
+                "name",
+                "calories",
+                "protein_g",
+                "carbs_g",
+                "fat_g",
+                "fiber_g",
+                "sugar_g",
+                "sodium_mg",
+                "source",
+            ]
+        ],
+        hide_index=True,
+        use_container_width=True,
+        disabled=["menu_item_id", "name", "source"],
+        key="settings_menu_nutrition",
+    )
+    if st.button("Save Nutrition", type="primary"):
+        for _, row in edit.iterrows():
+            nutrition.update_menu_nutrition(
+                int(row["menu_item_id"]),
+                {
+                    "calories": float(row["calories"]),
+                    "protein_g": float(row["protein_g"]),
+                    "carbs_g": float(row["carbs_g"]),
+                    "fat_g": float(row["fat_g"]),
+                    "fiber_g": float(row["fiber_g"]),
+                    "sugar_g": float(row["sugar_g"]),
+                    "sodium_mg": float(row["sodium_mg"]),
+                    "source": "owner_edit",
+                },
+            )
+        st.success("Nutrition updated")
+        st.rerun()
+else:
+    st.warning("No menu nutrition records found. Reset or reseed demo data.")
 
 render_section_header("Inventory")
 inv_df = pd.DataFrame(inventory.list_inventory())

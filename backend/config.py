@@ -17,6 +17,34 @@ DEFAULT_BUSINESS_CONFIG: dict[str, Any] = {
     "defaultPrepBufferMinutes": 2,
     "expiryWarningDays": 3,
     "requireHumanApprovalForPurchasing": True,
+    "macroActivityMultipliers": {
+        "sedentary": 1.2,
+        "light": 1.375,
+        "moderate": 1.55,
+        "active": 1.725,
+        "very_active": 1.9,
+    },
+    "macroGoalAdjustments": {
+        "lose weight": -0.15,
+        "maintain": 0.0,
+        "gain muscle": 0.10,
+        "high protein": 0.0,
+        "custom macros": 0.0,
+    },
+    "macroProteinPerKg": {
+        "lose weight": 1.8,
+        "maintain": 1.6,
+        "gain muscle": 2.0,
+        "high protein": 2.2,
+        "custom macros": 1.6,
+    },
+    "macroFatPercent": {
+        "lose weight": 0.25,
+        "maintain": 0.28,
+        "gain muscle": 0.25,
+        "high protein": 0.24,
+        "custom macros": 0.28,
+    },
 }
 
 

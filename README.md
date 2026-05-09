@@ -144,6 +144,14 @@ Analytics includes:
 11. Ask assistant: “What needs attention right now?”
 12. Ask assistant: “Create purchase orders for the urgent restocks.”
 13. Show tool calls and human approval behavior.
+14. Open Customer View → Macros.
+15. Create or select a customer macro profile and save deterministic targets.
+16. View today’s macro dashboard, progress bars, pie chart, and 7-day history.
+17. Open “Build My Macro Order,” choose one meal or whole day, and add the recommended real-menu items to cart.
+18. Place the order with macro tracking enabled.
+19. Return to Macros to show the order logged into history and updated charts.
+20. Ask: “What should I order later today to stay on track?” The macro agent explains only recommendations grounded in current menu nutrition.
+21. Open the owner dashboard/autopilot pages to show Customer Macro Agent activity and macro demand metrics.
 
 ## Product Positioning
 

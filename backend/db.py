@@ -179,6 +179,101 @@ TABLE_SCHEMAS = {
             resolved INTEGER NOT NULL DEFAULT 0
         )
     """,
+    "customer_profiles": """
+        CREATE TABLE IF NOT EXISTS customer_profiles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_name TEXT NOT NULL,
+            phone TEXT,
+            email TEXT,
+            height_cm REAL,
+            weight_kg REAL,
+            age INTEGER,
+            sex TEXT,
+            activity_level TEXT,
+            goal TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT
+        )
+    """,
+    "customer_macro_targets": """
+        CREATE TABLE IF NOT EXISTS customer_macro_targets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            target_date TEXT NOT NULL,
+            calories REAL NOT NULL,
+            protein_g REAL NOT NULL,
+            carbs_g REAL NOT NULL,
+            fat_g REAL NOT NULL,
+            source TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (customer_id) REFERENCES customer_profiles(id)
+        )
+    """,
+    "menu_nutrition": """
+        CREATE TABLE IF NOT EXISTS menu_nutrition (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            menu_item_id INTEGER NOT NULL UNIQUE,
+            calories REAL NOT NULL,
+            protein_g REAL NOT NULL,
+            carbs_g REAL NOT NULL,
+            fat_g REAL NOT NULL,
+            fiber_g REAL DEFAULT 0,
+            sugar_g REAL DEFAULT 0,
+            sodium_mg REAL DEFAULT 0,
+            source TEXT DEFAULT 'seeded_estimate',
+            updated_at TEXT,
+            FOREIGN KEY (menu_item_id) REFERENCES menu(id)
+        )
+    """,
+    "order_macro_logs": """
+        CREATE TABLE IF NOT EXISTS order_macro_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER,
+            order_id INTEGER,
+            log_date TEXT NOT NULL,
+            calories REAL NOT NULL,
+            protein_g REAL NOT NULL,
+            carbs_g REAL NOT NULL,
+            fat_g REAL NOT NULL,
+            source TEXT NOT NULL DEFAULT 'order',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (customer_id) REFERENCES customer_profiles(id),
+            FOREIGN KEY (order_id) REFERENCES orders(id)
+        )
+    """,
+    "daily_macro_summaries": """
+        CREATE TABLE IF NOT EXISTS daily_macro_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER NOT NULL,
+            summary_date TEXT NOT NULL,
+            calories_target REAL,
+            protein_target_g REAL,
+            carbs_target_g REAL,
+            fat_target_g REAL,
+            calories_consumed REAL,
+            protein_consumed_g REAL,
+            carbs_consumed_g REAL,
+            fat_consumed_g REAL,
+            calories_remaining REAL,
+            protein_remaining_g REAL,
+            carbs_remaining_g REAL,
+            fat_remaining_g REAL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT,
+            FOREIGN KEY (customer_id) REFERENCES customer_profiles(id)
+        )
+    """,
+    "macro_ai_suggestions": """
+        CREATE TABLE IF NOT EXISTS macro_ai_suggestions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            customer_id INTEGER,
+            suggestion_date TEXT NOT NULL,
+            context TEXT NOT NULL,
+            suggestion TEXT NOT NULL,
+            recommended_items_json TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        )
+    """,
 }
 
 
@@ -308,6 +403,24 @@ def migrate_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_agent_events_resolved ON agent_events(resolved, created_at)"
         )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_customer_profiles_lookup ON customer_profiles(customer_name, phone)"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_customer_macro_targets_date ON customer_macro_targets(customer_id, target_date)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_order_macro_logs_customer_date ON order_macro_logs(customer_id, log_date)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_order_macro_logs_order ON order_macro_logs(order_id)"
+        )
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_daily_macro_summaries_date ON daily_macro_summaries(customer_id, summary_date)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_macro_ai_suggestions_customer_date ON macro_ai_suggestions(customer_id, suggestion_date)"
+        )
 
 
 def init_db() -> None:
@@ -325,6 +438,12 @@ def reset_db() -> None:
             DROP TABLE IF EXISTS purchase_order_items;
             DROP TABLE IF EXISTS purchase_orders;
             DROP TABLE IF EXISTS agent_events;
+            DROP TABLE IF EXISTS macro_ai_suggestions;
+            DROP TABLE IF EXISTS daily_macro_summaries;
+            DROP TABLE IF EXISTS order_macro_logs;
+            DROP TABLE IF EXISTS customer_macro_targets;
+            DROP TABLE IF EXISTS customer_profiles;
+            DROP TABLE IF EXISTS menu_nutrition;
             DROP TABLE IF EXISTS order_items;
             DROP TABLE IF EXISTS orders;
             DROP TABLE IF EXISTS recipe;

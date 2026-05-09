@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 
 from .db import get_conn, reset_db
 from .seed import seed
+from . import macros as macros_mod
 from . import orders as orders_mod
 from . import payments as payments_mod
 from . import inventory as inv_mod
@@ -58,9 +59,26 @@ def generate(days: int = 7, orders_per_day_range: tuple[int, int] = (12, 28)) ->
     today = datetime.now()
     total_orders = 0
     order_counter = 2000
+    macro_profile = macros_mod.find_or_create_customer_by_name_phone(
+        "Marco Ramirez",
+        "555-0198",
+        email="marco@example.com",
+        height_cm=178,
+        weight_kg=82,
+        age=34,
+        sex="male",
+        activity_level="moderate",
+        goal="high protein",
+    )
 
     for d in range(days, 0, -1):
         day = today - timedelta(days=d - 1)
+        target_date = day.date().isoformat()
+        macros_mod.save_macro_targets(
+            macro_profile["id"],
+            target_date,
+            macros_mod.calculate_macro_targets(macro_profile),
+        )
         n = random.randint(*orders_per_day_range)
         for _ in range(n):
             cart = []
@@ -111,6 +129,8 @@ def generate(days: int = 7, orders_per_day_range: tuple[int, int] = (12, 28)) ->
                     "UPDATE orders SET status='completed', completed_at=? WHERE id=?",
                     (ts_iso, order_id),
                 )
+            if random.random() < 0.22:
+                macros_mod.log_order_macros(macro_profile["id"], order_id)
             total_orders += 1
 
     print(f"Generated {total_orders} orders across {days} days.")

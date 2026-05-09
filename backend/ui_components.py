@@ -18,6 +18,7 @@ VIEW_CUSTOMER = "customer"
 
 CUSTOMER_PAGE_ORDER = "pages/1_🍽️_Order.py"
 CUSTOMER_PAGE_STATUS = "pages/9_🔎_Order_Status.py"
+CUSTOMER_PAGE_MACROS = "pages/12_🥗_Customer_Macros.py"
 OWNER_PAGE_DASHBOARD = "pages/0_🧭_Command_Dashboard.py"
 OWNER_PAGE_KITCHEN = "pages/2_👨‍🍳_Kitchen.py"
 OWNER_PAGE_INVENTORY = "pages/3_📦_Inventory.py"
@@ -32,19 +33,14 @@ OWNER_PAGE_SETTINGS = "pages/7_⚙️_Settings.py"
 
 CUSTOMER_NAV = [
     ("Order", "🍽️", CUSTOMER_PAGE_ORDER),
+    ("Macros", "🥗", CUSTOMER_PAGE_MACROS),
     ("Order Status", "🔎", CUSTOMER_PAGE_STATUS),
 ]
 
 ORDER_DASHBOARD_NAV = [
-    ("Dashboard", "🧭", OWNER_PAGE_DASHBOARD),
     ("Order", "🍽️", CUSTOMER_PAGE_ORDER),
-    ("Kitchen", "👨‍🍳", OWNER_PAGE_KITCHEN),
-    ("Inventory", "📦", OWNER_PAGE_INVENTORY),
-    ("Sales", "📊", OWNER_PAGE_SALES),
-    ("Revenue", "💰", OWNER_PAGE_REVENUE),
-    ("Assistant", "🤖", OWNER_PAGE_ASSISTANT),
-    ("Purchasing", "🛒", OWNER_PAGE_PURCHASING),
-    ("Autopilot", "🧠", OWNER_PAGE_AUTOPILOT),
+    ("Macros", "🥗", CUSTOMER_PAGE_MACROS),
+    ("Order Status", "🔎", CUSTOMER_PAGE_STATUS),
 ]
 
 OWNER_NAV = [
