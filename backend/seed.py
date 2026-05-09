@@ -1,101 +1,364 @@
-"""Seed the database with a Mexican-style food truck menu.
+"""Seed the database with realistic El Camino Command demo data."""
+from __future__ import annotations
 
-Menu, recipes, and starting inventory. Idempotent — safe to run on a
-fresh DB. For demos, call reset_db() then seed().
-"""
+from datetime import date, timedelta
+
+from . import config as config_mod
+from . import menu as menu_mod
 from .db import get_conn, init_db
+from .theme_tokens import DEFAULT_THEME_TOKENS
+
+
+def _d(days: int) -> str:
+    return (date.today() + timedelta(days=days)).isoformat()
+
+
+SUPPLIERS = [
+    {
+        "name": "Walmart Mock",
+        "type": "retail",
+        "website": "https://example.com/walmart-mock",
+        "contact_info": "walmart-mock@example.com",
+        "estimated_delivery_time": "Same day",
+        "notes": "General emergency restock",
+    },
+    {
+        "name": "Costco Mock",
+        "type": "wholesale",
+        "website": "https://example.com/costco-mock",
+        "contact_info": "costco-mock@example.com",
+        "estimated_delivery_time": "Next day",
+        "notes": "Bulk packaged goods",
+    },
+    {
+        "name": "Restaurant Depot Mock",
+        "type": "foodservice",
+        "website": "https://example.com/rd-mock",
+        "contact_info": "rd-mock@example.com",
+        "estimated_delivery_time": "Next morning",
+        "notes": "Protein and produce",
+    },
+    {
+        "name": "Local Supplier Mock",
+        "type": "local",
+        "website": "https://example.com/local-supplier-mock",
+        "contact_info": "local-mock@example.com",
+        "estimated_delivery_time": "2-4 hours",
+        "notes": "Fresh herbs and produce",
+    },
+]
 
 
 MENU = [
-    # name, price, category, description
-    ("Carne Asada Taco",   3.50, "tacos",    "Grilled steak, onion, cilantro on corn tortilla"),
-    ("Al Pastor Taco",     3.50, "tacos",    "Marinated pork with pineapple"),
-    ("Veggie Taco",        3.00, "tacos",    "Black beans, peppers, queso fresco"),
-    ("Carne Burrito",      9.50, "burritos", "Steak, rice, beans, salsa, cheese"),
-    ("Veggie Burrito",     8.50, "burritos", "Beans, rice, peppers, queso fresco, salsa"),
-    ("Chips & Guacamole",  5.00, "sides",    "Fresh tortilla chips with house guacamole"),
-    ("Loaded Nachos",      8.00, "sides",    "Chips, beans, cheese, salsa, jalapeños"),
-    ("Coke",               2.50, "drinks",   "12 oz can"),
-    ("Lemonade",           3.00, "drinks",   "Fresh-squeezed"),
-    ("Horchata",           3.50, "drinks",   "Cinnamon rice milk"),
+    {
+        "name": "Carne Asada Taco",
+        "price": 3.50,
+        "category": "tacos",
+        "description": "Grilled steak, onion, cilantro on corn tortilla",
+        "prep_time_minutes": 1.2,
+        "cook_time_minutes": 3.8,
+        "image_url": "",
+        "sort_order": 10,
+    },
+    {
+        "name": "Al Pastor Taco",
+        "price": 3.50,
+        "category": "tacos",
+        "description": "Marinated pork with pineapple",
+        "prep_time_minutes": 1.1,
+        "cook_time_minutes": 3.4,
+        "image_url": "",
+        "sort_order": 20,
+    },
+    {
+        "name": "Veggie Taco",
+        "price": 3.00,
+        "category": "tacos",
+        "description": "Black beans, peppers, queso fresco",
+        "prep_time_minutes": 1.0,
+        "cook_time_minutes": 3.1,
+        "image_url": "",
+        "sort_order": 30,
+    },
+    {
+        "name": "Carne Burrito",
+        "price": 9.50,
+        "category": "burritos",
+        "description": "Steak, rice, beans, salsa, cheese",
+        "prep_time_minutes": 2.4,
+        "cook_time_minutes": 6.8,
+        "image_url": "",
+        "sort_order": 40,
+    },
+    {
+        "name": "Veggie Burrito",
+        "price": 8.50,
+        "category": "burritos",
+        "description": "Beans, rice, peppers, queso fresco, salsa",
+        "prep_time_minutes": 2.2,
+        "cook_time_minutes": 6.2,
+        "image_url": "",
+        "sort_order": 50,
+    },
+    {
+        "name": "Chips & Guacamole",
+        "price": 5.00,
+        "category": "sides",
+        "description": "Fresh tortilla chips with house guacamole",
+        "prep_time_minutes": 1.6,
+        "cook_time_minutes": 2.3,
+        "image_url": "",
+        "sort_order": 60,
+    },
+    {
+        "name": "Loaded Nachos",
+        "price": 8.00,
+        "category": "sides",
+        "description": "Chips, beans, cheese, salsa, jalapeños",
+        "prep_time_minutes": 1.8,
+        "cook_time_minutes": 4.8,
+        "image_url": "",
+        "sort_order": 70,
+    },
+    {
+        "name": "Coke",
+        "price": 2.50,
+        "category": "drinks",
+        "description": "12 oz can",
+        "prep_time_minutes": 0.2,
+        "cook_time_minutes": 0.2,
+        "image_url": "",
+        "sort_order": 80,
+    },
+    {
+        "name": "Lemonade",
+        "price": 3.00,
+        "category": "drinks",
+        "description": "Fresh-squeezed",
+        "prep_time_minutes": 0.4,
+        "cook_time_minutes": 0.2,
+        "image_url": "",
+        "sort_order": 90,
+    },
+    {
+        "name": "Horchata",
+        "price": 3.50,
+        "category": "drinks",
+        "description": "Cinnamon rice milk",
+        "prep_time_minutes": 0.6,
+        "cook_time_minutes": 0.2,
+        "image_url": "",
+        "sort_order": 100,
+    },
 ]
 
 
-# (ingredient, starting_qty, unit, reorder_threshold, cost_per_unit)
+# ingredient, qty, unit, reorder_threshold, critical_threshold, cost, category, supplier_name, expiration
 INVENTORY = [
-    ("corn_tortilla",   1000, "pcs",  100,  0.10),
-    ("flour_tortilla",  300,  "pcs",  50,   0.30),
-    ("steak",           20000,"g",    3000, 0.025),
-    ("pork",            15000,"g",    2500, 0.020),
-    ("black_beans",     15000,"g",    2000, 0.005),
-    ("rice",            12000,"g",    2000, 0.003),
-    ("cheese",          8000, "g",    1500, 0.012),
-    ("queso_fresco",    6000, "g",    1000, 0.018),
-    ("onion",           8000, "g",    1500, 0.003),
-    ("cilantro",        2000, "g",    400,  0.020),
-    ("pineapple",       5000, "g",    1000, 0.005),
-    ("avocado",         100,  "pcs",  20,   1.20),
-    ("bell_peppers",    5000, "g",    1000, 0.006),
-    ("jalapeno",        2000, "g",    400,  0.008),
-    ("salsa",           8000, "g",    1500, 0.005),
-    ("tortilla_chips",  12000,"g",    2500, 0.008),
-    ("lime",            150,  "pcs",  30,   0.25),
-    ("coke_can",        200,  "pcs",  40,   0.60),
-    ("lemon",           100,  "pcs",  20,   0.40),
-    ("rice_milk",       12000,"ml",   2500, 0.004),
-    ("cinnamon",        500,  "g",    100,  0.030),
-    ("sugar",           5000, "g",    1000, 0.002),
+    ("corn_tortilla", 1000, "pcs", 100, 40, 0.10, "dry", "Costco Mock", _d(45)),
+    ("flour_tortilla", 300, "pcs", 50, 20, 0.30, "dry", "Costco Mock", _d(45)),
+    ("steak", 20000, "g", 3000, 1200, 0.025, "protein", "Restaurant Depot Mock", _d(4)),
+    ("pork", 15000, "g", 2500, 1000, 0.020, "protein", "Restaurant Depot Mock", _d(3)),
+    ("black_beans", 15000, "g", 2000, 800, 0.005, "dry", "Costco Mock", _d(120)),
+    ("rice", 12000, "g", 2000, 800, 0.003, "dry", "Costco Mock", _d(120)),
+    ("cheese", 8000, "g", 1500, 500, 0.012, "dairy", "Restaurant Depot Mock", _d(7)),
+    ("queso_fresco", 6000, "g", 1000, 350, 0.018, "dairy", "Restaurant Depot Mock", _d(6)),
+    ("onion", 8000, "g", 1500, 500, 0.003, "produce", "Local Supplier Mock", _d(2)),
+    ("cilantro", 2000, "g", 400, 150, 0.020, "produce", "Local Supplier Mock", _d(1)),
+    ("pineapple", 5000, "g", 1000, 300, 0.005, "produce", "Local Supplier Mock", _d(3)),
+    ("avocado", 100, "pcs", 20, 8, 1.20, "produce", "Local Supplier Mock", _d(2)),
+    ("bell_peppers", 5000, "g", 1000, 300, 0.006, "produce", "Local Supplier Mock", _d(4)),
+    ("jalapeno", 2000, "g", 400, 140, 0.008, "produce", "Local Supplier Mock", _d(5)),
+    ("salsa", 8000, "g", 1500, 500, 0.005, "prepared", "Restaurant Depot Mock", _d(14)),
+    ("tortilla_chips", 12000, "g", 2500, 1000, 0.008, "dry", "Costco Mock", _d(90)),
+    ("lime", 150, "pcs", 30, 10, 0.25, "produce", "Local Supplier Mock", _d(5)),
+    ("coke_can", 200, "pcs", 40, 15, 0.60, "beverage", "Walmart Mock", _d(180)),
+    ("lemon", 100, "pcs", 20, 8, 0.40, "produce", "Local Supplier Mock", _d(4)),
+    ("rice_milk", 12000, "ml", 2500, 1000, 0.004, "beverage", "Walmart Mock", _d(40)),
+    ("cinnamon", 500, "g", 100, 40, 0.030, "dry", "Costco Mock", _d(365)),
+    ("sugar", 5000, "g", 1000, 350, 0.002, "dry", "Costco Mock", _d(365)),
 ]
 
 
-# menu_name -> [(ingredient, qty_per_serving), ...]
 RECIPES = {
-    "Carne Asada Taco":   [("corn_tortilla", 1), ("steak", 60), ("onion", 15), ("cilantro", 3), ("lime", 0.1)],
-    "Al Pastor Taco":     [("corn_tortilla", 1), ("pork", 60), ("pineapple", 20), ("onion", 10), ("cilantro", 3)],
-    "Veggie Taco":        [("corn_tortilla", 1), ("black_beans", 40), ("bell_peppers", 30), ("queso_fresco", 20)],
-    "Carne Burrito":      [("flour_tortilla", 1), ("steak", 100), ("rice", 80), ("black_beans", 60), ("salsa", 30), ("cheese", 30)],
-    "Veggie Burrito":     [("flour_tortilla", 1), ("black_beans", 100), ("rice", 80), ("bell_peppers", 50), ("queso_fresco", 30), ("salsa", 30)],
-    "Chips & Guacamole":  [("tortilla_chips", 80), ("avocado", 1), ("onion", 10), ("lime", 0.25), ("cilantro", 2)],
-    "Loaded Nachos":      [("tortilla_chips", 120), ("black_beans", 60), ("cheese", 50), ("salsa", 40), ("jalapeno", 15)],
-    "Coke":               [("coke_can", 1)],
-    "Lemonade":           [("lemon", 1), ("sugar", 20)],
-    "Horchata":           [("rice_milk", 350), ("cinnamon", 2), ("sugar", 15)],
+    "Carne Asada Taco": [
+        ("corn_tortilla", 1),
+        ("steak", 60),
+        ("onion", 15),
+        ("cilantro", 3),
+        ("lime", 0.1),
+    ],
+    "Al Pastor Taco": [
+        ("corn_tortilla", 1),
+        ("pork", 60),
+        ("pineapple", 20),
+        ("onion", 10),
+        ("cilantro", 3),
+    ],
+    "Veggie Taco": [
+        ("corn_tortilla", 1),
+        ("black_beans", 40),
+        ("bell_peppers", 30),
+        ("queso_fresco", 20),
+    ],
+    "Carne Burrito": [
+        ("flour_tortilla", 1),
+        ("steak", 100),
+        ("rice", 80),
+        ("black_beans", 60),
+        ("salsa", 30),
+        ("cheese", 30),
+    ],
+    "Veggie Burrito": [
+        ("flour_tortilla", 1),
+        ("black_beans", 100),
+        ("rice", 80),
+        ("bell_peppers", 50),
+        ("queso_fresco", 30),
+        ("salsa", 30),
+    ],
+    "Chips & Guacamole": [
+        ("tortilla_chips", 80),
+        ("avocado", 1),
+        ("onion", 10),
+        ("lime", 0.25),
+        ("cilantro", 2),
+    ],
+    "Loaded Nachos": [
+        ("tortilla_chips", 120),
+        ("black_beans", 60),
+        ("cheese", 50),
+        ("salsa", 40),
+        ("jalapeno", 15),
+    ],
+    "Coke": [("coke_can", 1)],
+    "Lemonade": [("lemon", 1), ("sugar", 20)],
+    "Horchata": [("rice_milk", 350), ("cinnamon", 2), ("sugar", 15)],
 }
 
 
-def seed():
+def seed() -> None:
     init_db()
     with get_conn() as conn:
-        # Menu
-        for name, price, category, desc in MENU:
+        for s in SUPPLIERS:
             conn.execute(
-                "INSERT OR IGNORE INTO menu (name, price, category, description) VALUES (?, ?, ?, ?)",
-                (name, price, category, desc),
+                """
+                INSERT INTO suppliers (name, type, website, contact_info, estimated_delivery_time, notes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    type = excluded.type,
+                    website = excluded.website,
+                    contact_info = excluded.contact_info,
+                    estimated_delivery_time = excluded.estimated_delivery_time,
+                    notes = excluded.notes
+                """,
+                (
+                    s["name"],
+                    s["type"],
+                    s["website"],
+                    s["contact_info"],
+                    s["estimated_delivery_time"],
+                    s["notes"],
+                ),
             )
 
-        # Inventory
-        for ingredient, qty, unit, threshold, cost in INVENTORY:
+        supplier_lookup = {
+            row["name"]: row["id"]
+            for row in conn.execute("SELECT id, name FROM suppliers").fetchall()
+        }
+
+        for m in MENU:
             conn.execute(
-                """INSERT OR IGNORE INTO inventory
-                   (ingredient, quantity, unit, reorder_threshold, cost_per_unit)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (ingredient, qty, unit, threshold, cost),
+                """
+                INSERT INTO menu
+                (name, price, category, description, available, prep_time_minutes, cook_time_minutes, image_url, sort_order)
+                VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    price = excluded.price,
+                    category = excluded.category,
+                    description = excluded.description,
+                    prep_time_minutes = excluded.prep_time_minutes,
+                    cook_time_minutes = excluded.cook_time_minutes,
+                    image_url = excluded.image_url,
+                    sort_order = excluded.sort_order
+                """,
+                (
+                    m["name"],
+                    m["price"],
+                    m["category"],
+                    m["description"],
+                    m["prep_time_minutes"],
+                    m["cook_time_minutes"],
+                    m["image_url"],
+                    m["sort_order"],
+                ),
             )
 
-        # Recipes — need menu IDs
-        name_to_id = {row["name"]: row["id"] for row in conn.execute("SELECT id, name FROM menu")}
-        for menu_name, items in RECIPES.items():
+        for ingredient, qty, unit, reorder, critical, cost, category, supplier_name, expiry in INVENTORY:
+            supplier_id = supplier_lookup.get(supplier_name)
+            conn.execute(
+                """
+                INSERT INTO inventory
+                (ingredient, quantity, unit, reorder_threshold, cost_per_unit, critical_threshold, expiration_date, supplier_id, category)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(ingredient) DO UPDATE SET
+                    quantity = excluded.quantity,
+                    unit = excluded.unit,
+                    reorder_threshold = excluded.reorder_threshold,
+                    cost_per_unit = excluded.cost_per_unit,
+                    critical_threshold = excluded.critical_threshold,
+                    expiration_date = excluded.expiration_date,
+                    supplier_id = excluded.supplier_id,
+                    category = excluded.category
+                """,
+                (
+                    ingredient,
+                    qty,
+                    unit,
+                    reorder,
+                    cost,
+                    critical,
+                    expiry,
+                    supplier_id,
+                    category,
+                ),
+            )
+
+        name_to_id = {
+            row["name"]: row["id"]
+            for row in conn.execute("SELECT id, name FROM menu").fetchall()
+        }
+
+        for menu_name, recipe_items in RECIPES.items():
             menu_id = name_to_id[menu_name]
-            for ingredient, qty in items:
+            for ingredient, qty in recipe_items:
                 conn.execute(
-                    """INSERT OR IGNORE INTO recipe (menu_id, ingredient, qty_per_serving)
-                       VALUES (?, ?, ?)""",
+                    """
+                    INSERT INTO recipe (menu_id, ingredient, qty_per_serving)
+                    VALUES (?, ?, ?)
+                    ON CONFLICT(menu_id, ingredient) DO UPDATE SET
+                        qty_per_serving = excluded.qty_per_serving
+                    """,
                     (menu_id, ingredient, qty),
                 )
+
+        for key, value in DEFAULT_THEME_TOKENS.items():
+            conn.execute(
+                """
+                INSERT INTO theme_config (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, value),
+            )
+
+    config_mod.update_business_config(config_mod.DEFAULT_BUSINESS_CONFIG)
+    menu_mod.recalculate_menu_availability()
 
 
 if __name__ == "__main__":
     from .db import reset_db
+
     reset_db()
     seed()
-    print("Seeded.")
+    print("Seeded El Camino Command data.")

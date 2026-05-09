@@ -1,23 +1,26 @@
-"""Generate a few days of fake order history so the dashboards have data.
+"""Generate fake order history so dashboards have useful data.
 
 Run: python -m backend.demo_data
 """
+from __future__ import annotations
+
 import random
 from datetime import datetime, timedelta
+
 from .db import get_conn, reset_db
 from .seed import seed
 from . import orders as orders_mod
 from . import payments as payments_mod
 from . import inventory as inv_mod
+from . import kitchen as kitchen_mod
 
 
-def generate(days: int = 7, orders_per_day_range: tuple[int, int] = (12, 28)):
+def generate(days: int = 7, orders_per_day_range: tuple[int, int] = (12, 28)) -> None:
     reset_db()
     seed()
 
     menu = orders_mod.get_menu()
 
-    # Weighted popularity so some items become "best-sellers"
     weights = {
         "Carne Asada Taco": 5,
         "Al Pastor Taco": 4,
@@ -34,29 +37,42 @@ def generate(days: int = 7, orders_per_day_range: tuple[int, int] = (12, 28)):
     for m in menu:
         weighted_items.extend([m] * weights.get(m["name"], 1))
 
-    names = ["Maria", "Jake", "Priya", "Carlos", "Aisha", "Tom", "Lin",
-             "David", "Sofia", "Ahmed", "Emma", "Ravi", "Yuki", "Sam", "Mia"]
+    names = [
+        "Maria",
+        "Jake",
+        "Priya",
+        "Carlos",
+        "Aisha",
+        "Tom",
+        "Lin",
+        "David",
+        "Sofia",
+        "Ahmed",
+        "Emma",
+        "Ravi",
+        "Yuki",
+        "Sam",
+        "Mia",
+    ]
 
     today = datetime.now()
     total_orders = 0
+    order_counter = 2000
+
     for d in range(days, 0, -1):
         day = today - timedelta(days=d - 1)
         n = random.randint(*orders_per_day_range)
         for _ in range(n):
-            # 1-4 line items per order
             cart = []
             for _ in range(random.randint(1, 4)):
                 item = random.choice(weighted_items)
                 qty = random.choices([1, 2, 3], weights=[6, 3, 1])[0]
                 cart.append({"menu_id": item["id"], "quantity": qty})
 
-            # Compute total without inventory check (skip the agent path,
-            # write directly so we can backdate timestamps)
             with get_conn() as conn:
                 price_lookup = {m["id"]: m["price"] for m in menu}
                 total = sum(price_lookup[c["menu_id"]] * c["quantity"] for c in cart)
 
-                # Random timestamp within the day
                 hour = random.randint(11, 21)
                 minute = random.randint(0, 59)
                 ts = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
@@ -66,23 +82,35 @@ def generate(days: int = 7, orders_per_day_range: tuple[int, int] = (12, 28)):
                 if pay["status"] != "succeeded":
                     continue
 
+                order_counter += 1
+                order_number = f"EC-{order_counter:04d}"
                 cur = conn.execute(
-                    """INSERT INTO orders
-                       (customer_name, status, total, payment_status, payment_id, created_at, completed_at)
-                       VALUES (?, 'completed', ?, 'paid', ?, ?, ?)""",
-                    (random.choice(names), total, pay["payment_id"], ts_iso, ts_iso),
+                    """
+                    INSERT INTO orders
+                    (order_number, customer_name, status, total, payment_status, payment_id, source, created_at, completed_at)
+                    VALUES (?, ?, 'completed', ?, 'paid', ?, 'kiosk', ?, ?)
+                    """,
+                    (order_number, random.choice(names), total, pay["payment_id"], ts_iso, ts_iso),
                 )
                 order_id = cur.lastrowid
+
                 for c in cart:
-                    name = next(m["name"] for m in menu if m["id"] == c["menu_id"])
                     price = price_lookup[c["menu_id"]]
                     conn.execute(
-                        """INSERT INTO order_items (order_id, menu_id, quantity, unit_price)
-                           VALUES (?, ?, ?, ?)""",
+                        """
+                        INSERT INTO order_items (order_id, menu_id, quantity, unit_price)
+                        VALUES (?, ?, ?, ?)
+                        """,
                         (order_id, c["menu_id"], c["quantity"], price),
                     )
-            # Deduct inventory after committing the order
+
             inv_mod.deduct_for_order(order_id)
+            kitchen_mod.save_kitchen_timeline(order_id)
+            with get_conn() as conn:
+                conn.execute(
+                    "UPDATE orders SET status='completed', completed_at=? WHERE id=?",
+                    (ts_iso, order_id),
+                )
             total_orders += 1
 
     print(f"Generated {total_orders} orders across {days} days.")

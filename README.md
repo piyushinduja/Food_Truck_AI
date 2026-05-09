@@ -1,73 +1,150 @@
-# 🌮 El Camino — Run-Your-Business AI for Food Trucks
+# El Camino Command
 
-A hackathon project that turns a Streamlit app into a fully agentic operations console for a food truck: voice-driven ordering, automatic inventory deduction, supplier restocks, and a tool-using owner assistant.
+Run the truck. Watch the numbers. Serve food on time.
 
-## What's inside
+El Camino Command is a Streamlit-based AI operating system for independent food trucks. It keeps deterministic business logic in Python/SQLite (orders, kitchen timing, inventory, COGS, revenue, profit, purchasing lifecycle) and uses LLMs only for voice parsing and owner Q&A with tools.
 
-**Customer side** — a click menu plus voice ordering. The customer can tap items or hit the mic and say _"two carne tacos and a coke, no cilantro on one"_ — Groq Whisper transcribes, Llama parses into structured cart edits, the cart updates.
+## What Changed
 
-**Owner side** — five dashboards (Kitchen, Inventory, Sales, Revenue) plus a chat assistant that has function-calling access to the same data. Ask _"what's running low?"_ or _"order more steak"_ and it queries the DB and places restocks.
+This version upgrades the original hackathon app into a command-center product while preserving the existing architecture.
+
+- Centralized black/white/red command theme.
+- Main command dashboard showing live operations + agent health.
+- Kitchen timing engine that staggers item start offsets to finish hot together.
+- Inventory expiry tracking with `ok/low/critical/out/expired/expires_today/expires_soon` states.
+- Human-approved purchasing lifecycle (`suggested -> approved/rejected -> received`).
+- Expanded analytics/money layer with COGS, purchase spend, estimated profit, risk summaries.
+- New settings page for business config, menu timing, inventory thresholds/expiry, suppliers, theme tokens.
+- New customer order status page by order number.
+- Role-oriented views for Customer, Chef, Owner.
 
 ## Architecture
 
-```
-streamlit_app.py          # entry, landing page, sidebar reset
-pages/                    # Streamlit auto-discovers these
-  1_🍽️_Order.py            # customer menu + voice
-  2_👨‍🍳_Kitchen.py          # active orders queue
-  3_📦_Inventory.py        # stock levels + restock
-  4_📊_Sales.py            # item rankings
-  5_💰_Revenue.py          # daily revenue
-  6_🤖_Assistant.py        # tool-using owner agent
+```text
+streamlit_app.py
+pages/
+  1_🍽️_Order.py
+  2_👨‍🍳_Kitchen.py
+  3_📦_Inventory.py
+  4_📊_Sales.py
+  5_💰_Revenue.py
+  6_🤖_Assistant.py
+  7_⚙️_Settings.py
+  8_🛒_Purchasing.py
+  9_🔎_Order_Status.py
 backend/
-  db.py                   # SQLite schema + connection
-  seed.py                 # menu, ingredients, recipes
-  orders.py               # create_order, lifecycle
-  inventory.py            # deduct, low-stock, mock Walmart
-  payments.py             # mock Stripe
-  analytics.py            # SQL aggregations
-  agents.py               # Groq Whisper + chat + tools
-  demo_data.py            # backdated fake orders
-data/foodtruck.db         # auto-created on first run
+  db.py
+  seed.py
+  orders.py
+  inventory.py
+  payments.py
+  analytics.py
+  agents.py
+  demo_data.py
+  bootstrap.py
+  config.py
+  menu.py
+  kitchen.py
+  purchasing.py
+  agent_status.py
+  theme.py
+  theme_tokens.py
+data/foodtruck.db
 ```
 
-**Design philosophy.** Order/inventory/sales/revenue are deterministic Python — not LLM-wrapped. The LLM only shows up where natural language actually adds value: parsing voice into cart edits, and answering owner questions with tool-calls. This keeps the system fast, debuggable, and demoable.
+## Deterministic Core
+
+The following stay deterministic and do not depend on LLM calls:
+
+- Order totals
+- Inventory deduction and availability gating
+- Kitchen timing and ETA
+- COGS and profit estimates
+- Purchasing approval and receiving lifecycle
+- Revenue and supplier spending analytics
+
+LLMs are used only for:
+
+- Voice-to-cart parsing (Whisper + Llama)
+- Owner assistant natural-language reasoning over backend tools
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
 export GROQ_API_KEY=gsk_...
-python -m backend.demo_data    # optional: populate dashboards with 7 days of fake orders
 streamlit run streamlit_app.py
 ```
 
-If you skip `demo_data`, the DB seeds itself on first launch with menu/inventory only — dashboards will be empty until you place orders.
+Optional demo history:
 
-## Demo script (5 min)
+```bash
+python -m backend.demo_data
+```
 
-1. **Sidebar → Reset Database**, then run `python -m backend.demo_data` so dashboards have history.
-2. **Order page** → tap a few items → hit the mic → say _"add two carne asada tacos and a horchata"_ → cart updates → enter name → place order.
-3. **Kitchen page** → new order at the top with a live timer → click Start Preparing → Mark Ready → Mark Completed.
-4. **Inventory page** → notice items now have lower stock; if any went low, click Order to restock.
-5. **Sales page** → bar chart of best-sellers and category pie.
-6. **Revenue page** → daily revenue bars.
-7. **Assistant page** → ask _"what's running low and what would it cost to restock?"_ → watch the tool calls in the expander → ask _"go ahead and order all of those"_.
+## Command Dashboard Highlights
 
-## Pluggable integrations
+- Top status bar: open/closed, revenue today, orders today, active orders, alerts, estimated profit.
+- Agent status cards:
+  - Customer Kiosk Order Agent
+  - Inventory + Supplies Purchasing Agent
+  - Analytics + Money Agent
+  - Kitchen Order Monitoring Agent
+- Live panels: orders, kitchen timing, inventory alerts, purchase suggestions, money snapshot, agent event feed.
 
-- **Stripe** — replace `backend/payments.py:charge()` with `stripe.PaymentIntent.create()`. Return shape is already compatible.
-- **Walmart / Instacart Connect** — replace `backend/inventory.py:place_restock_order()`. Return shape: `{ok, confirmation_id, ingredient, quantity, unit, cost}`.
-- **Twilio (SMS notifications)** — emit on `orders.advance_status()` when status flips to `ready`.
+## Key Operational Features
 
-## What the agents actually do
+### Kitchen Timing Engine
 
-**Customer voice agent** (`agents.parse_voice_order`)
-- Input: raw transcript + current cart + menu
-- Output: structured `actions: [{op, item, quantity, notes}]` + spoken reply
-- Why an agent? Because "make the second taco no onions" doesn't map cleanly to clicks.
+For each order item:
 
-**Owner assistant** (`agents.owner_chat`)
-- Tools: `get_today_summary`, `get_sales_by_item`, `get_revenue_by_day`, `get_low_stock`, `get_restock_suggestions`, `place_restock_order`
-- Loops up to 5 turns of tool calls before answering.
-- Why an agent? Because owners ask compound questions like _"how's today vs last week, and is anything running low?"_ that need 2-3 tool hits.
+- `total_time = prep_time_minutes + cook_time_minutes` (quantity-scaled prototype logic)
+- Longest item is anchor (`start_offset = 0`)
+- Shorter items start later (`longest - item_total`)
+- Timeline steps are stored in `kitchen_timeline_steps`
+- `orders.estimated_ready_at` is written from deterministic ETA logic
+
+### Inventory + Expiry Safety
+
+Inventory is classified into explicit states and expired ingredients block dependent menu items until replaced or corrected.
+
+### Human-Approved Purchasing
+
+Purchasing behavior is now approval-based:
+
+- Suggestions do not change inventory
+- PO creation does not change inventory
+- PO approval does not change inventory
+- Only `mark_purchase_order_received()` increases inventory
+
+### Analytics + Money
+
+Analytics includes:
+
+- Revenue, order count, average ticket
+- COGS by order/day
+- Purchase spending
+- Estimated profit
+- Profit over time
+- Supplier spending
+- Waste/inventory risk summaries
+
+## Demo Script
+
+1. Reset DB.
+2. Load demo data.
+3. Open dashboard and show agent cards.
+4. Place order from customer page using buttons or voice.
+5. Show order number and estimated wait time.
+6. Open kitchen page and show staggered timeline.
+7. Start/ready/complete order.
+8. Open inventory and show deducted ingredients, low stock, expiry warnings.
+9. Open purchasing and create/approve/receive a mock purchase order.
+10. Open analytics and show revenue, COGS, profit, spending, top items.
+11. Ask assistant: “What needs attention right now?”
+12. Ask assistant: “Create purchase orders for the urgent restocks.”
+13. Show tool calls and human approval behavior.
+
+## Product Positioning
+
+El Camino Command helps independent food trucks take orders, time kitchen work, prevent stockouts, reduce waste, manage supplier restocking, and understand profit from one live dashboard.

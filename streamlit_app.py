@@ -1,121 +1,178 @@
-"""Food Truck Operations — Streamlit entry point.
+"""El Camino Command main dashboard."""
+from __future__ import annotations
 
-Run with: streamlit run streamlit_app.py
-
-The sidebar exposes a demo reset button and shows quick stats.
-The actual pages live under pages/ and are auto-discovered by Streamlit.
-"""
 import sys
 from pathlib import Path
 
-# Make sure project root is on sys.path so `from backend import ...` works
-# regardless of which directory `streamlit run` was invoked from.
 _PROJECT_ROOT = Path(__file__).resolve().parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import streamlit as st
 
-from backend.db import reset_db, init_db
+from backend import agent_status, analytics, kitchen, inventory, purchasing
+from backend import config as config_mod
+from backend.bootstrap import ensure_app_ready
+from backend.db import get_conn, reset_db
 from backend.seed import seed
-from backend import analytics, orders as orders_mod
+from backend.theme import apply_global_theme, command_card, metric_card, section_header
 
 
 st.set_page_config(
-    page_title="El Camino — Operations",
-    page_icon="🌮",
+    page_title="El Camino Command",
+    page_icon="🚚",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+ensure_app_ready()
+apply_global_theme()
 
-# Initialize DB on first run
-DB_PATH = _PROJECT_ROOT / "data" / "foodtruck.db"
-if not DB_PATH.exists():
-    init_db()
-    seed()
+cfg = config_mod.get_business_config()
+summary = analytics.dashboard_summary()
+statuses = agent_status.get_all_agent_statuses()
+active_orders = kitchen.get_active_kitchen_orders()
+alerts = inventory.get_inventory_alerts()
+suggestions = purchasing.get_restock_suggestions()
 
+section_header(
+    f"{cfg.get('businessName', 'El Camino Command')}",
+    cfg.get("tagline", "Run the truck. Watch the numbers. Serve food on time."),
+)
 
-# Custom styling — warm palette, distinctive but Streamlit-compatible
-st.markdown("""
-<style>
-    .main > div { padding-top: 1.5rem; }
-    h1, h2, h3 { font-family: 'Georgia', serif; letter-spacing: -0.02em; }
-    .hero-title {
-        font-size: 3.5rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #d4471a 0%, #f4a261 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-bottom: 0.2rem;
-    }
-    .hero-sub {
-        color: #888;
-        font-size: 1.1rem;
-        font-style: italic;
-        margin-bottom: 2rem;
-    }
-    .stat-card {
-        background: #fafafa;
-        padding: 1.2rem;
-        border-radius: 10px;
-        border-left: 4px solid #d4471a;
-    }
-    .stat-label { color: #888; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-value { font-size: 2rem; font-weight: 700; color: #222; margin-top: 0.3rem; }
-</style>
-""", unsafe_allow_html=True)
+# Top status bar
+m1, m2, m3, m4, m5, m6 = st.columns(6)
+with m1:
+    metric_card("Status", str(cfg.get("openStatus", "open")).upper(), status="healthy" if str(cfg.get("openStatus", "open")).lower() == "open" else "attention")
+with m2:
+    metric_card("Today's Revenue", f"${summary['revenue_today']:.2f}")
+with m3:
+    metric_card("Orders Today", summary["order_count_today"])
+with m4:
+    metric_card("Active Orders", summary["active_orders"])
+with m5:
+    metric_card("Alerts", summary["alerts_count"], status="critical" if summary["alerts_count"] else "healthy")
+with m6:
+    metric_card("Estimated Profit", f"${summary['estimated_profit_today']:.2f}", status="critical" if summary["estimated_profit_today"] < 0 else "healthy")
 
+section_header("Agent Status", "Customer, kitchen, inventory, and money agents")
+agent_cols = st.columns(4)
+for col, status in zip(agent_cols, statuses):
+    with col:
+        body = status["summary"]
+        if status["alerts"]:
+            body += "<br/>" + "<br/>".join(f"• {a}" for a in status["alerts"][:3])
+        command_card(status["agent_name"], body, status=status["status"])
 
-st.markdown('<div class="hero-title">🌮 El Camino</div>', unsafe_allow_html=True)
-st.markdown('<div class="hero-sub">Run-your-business AI for food trucks</div>', unsafe_allow_html=True)
+left, right = st.columns([1.2, 1])
 
+with left:
+    section_header("Live Orders", "Current queue with ETA")
+    if not active_orders:
+        command_card("No Active Orders", "Kitchen queue is clear.", status="healthy")
+    else:
+        for order in active_orders[:8]:
+            eta = order.get("estimated_ready_at") or "TBD"
+            state = "late" if order.get("is_late") else order.get("status", "pending")
+            items = ", ".join(f"{it['quantity']}x {it['item_name']}" for it in order.get("items", []))
+            body = (
+                f"Customer: {order.get('customer_name') or 'Guest'}<br/>"
+                f"Elapsed: {order.get('elapsed_minutes', 0):.1f} min<br/>"
+                f"ETA: {eta}<br/>"
+                f"Items: {items}"
+            )
+            command_card(order.get("order_number") or f"Order #{order['id']}", body, status=state)
 
-# Quick stats row
-summary = analytics.today_summary()
-active_orders = orders_mod.list_active_orders()
+    section_header("Kitchen Timing", "Start offsets to synchronize hot finish")
+    if active_orders:
+        for order in active_orders[:4]:
+            steps = order.get("timeline", [])
+            if not steps:
+                continue
+            lines = []
+            for step in steps[:4]:
+                lines.append(
+                    f"{step['item_name']}: start +{step['start_offset_minutes']:.1f}m, duration {step['duration_minutes']:.1f}m"
+                )
+            command_card(
+                order.get("order_number") or f"Order #{order['id']}",
+                "<br/>".join(lines),
+                status="warning" if order.get("is_late") else "healthy",
+            )
 
-c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown(f'<div class="stat-card"><div class="stat-label">Today\'s Revenue</div><div class="stat-value">${summary["revenue"]:.2f}</div></div>', unsafe_allow_html=True)
-with c2:
-    st.markdown(f'<div class="stat-card"><div class="stat-label">Orders Today</div><div class="stat-value">{summary["num_orders"]}</div></div>', unsafe_allow_html=True)
-with c3:
-    st.markdown(f'<div class="stat-card"><div class="stat-label">Avg Ticket</div><div class="stat-value">${summary["avg_ticket"]:.2f}</div></div>', unsafe_allow_html=True)
-with c4:
-    st.markdown(f'<div class="stat-card"><div class="stat-label">Active Orders</div><div class="stat-value">{len(active_orders)}</div></div>', unsafe_allow_html=True)
+with right:
+    section_header("Inventory Alerts", "Low, critical, out, and expiry safety")
+    if not alerts:
+        command_card("Inventory", "No active inventory alerts.", status="healthy")
+    else:
+        for alert in alerts[:8]:
+            command_card(alert["ingredient"], alert["message"], status=alert["status"])
 
+    section_header("Purchase Suggestions", "Draft POs requiring owner approval")
+    if not suggestions:
+        command_card("Purchasing", "No restock suggestions right now.", status="healthy")
+    else:
+        for s in suggestions[:6]:
+            body = (
+                f"Need {s['estimated_qty']} {s['unit']} | Est ${s['estimated_cost']:.2f}<br/>"
+                f"Reason: {s['reason']}"
+            )
+            command_card(s["ingredient"], body, status="critical" if s["urgency"] == "critical" else "warning")
 
-st.markdown("### ")
-st.markdown("""
-Welcome to the operations console. Use the sidebar to navigate:
+    section_header("Money Snapshot", "Revenue, COGS, spend, and risk")
+    risk = analytics.waste_risk()
+    command_card(
+        "Financial View",
+        (
+            f"Revenue today: ${summary['revenue_today']:.2f}<br/>"
+            f"COGS today: ${summary['cogs_today']:.2f}<br/>"
+            f"Purchase spend (30d): ${summary['purchase_spending']:.2f}<br/>"
+            f"Estimated profit today: ${summary['estimated_profit_today']:.2f}<br/>"
+            f"Inventory value at waste risk: ${risk['estimated_value_at_risk']:.2f}"
+        ),
+        status="critical" if summary["estimated_profit_today"] < 0 else "healthy",
+    )
 
-- **🍽️ Order** — customer-facing menu with click-to-add and voice ordering
-- **👨‍🍳 Kitchen** — active orders queue with timers and status flow
-- **📦 Inventory** — stock levels, low-stock alerts, restock from supplier
-- **📊 Sales** — best-sellers and category breakdown
-- **💰 Revenue** — daily revenue trends
-- **🤖 Owner Assistant** — ask questions about your business in plain language
-""")
+section_header("Agent Activity Feed")
+with get_conn() as conn:
+    events = conn.execute(
+        """
+        SELECT * FROM agent_events
+        ORDER BY datetime(created_at) DESC
+        LIMIT 12
+        """
+    ).fetchall()
 
+if not events:
+    st.caption("No recent agent events.")
+else:
+    for e in events:
+        command_card(
+            f"{e['agent_name']} · {e['title']}",
+            f"{e['message']}<br/>{e['created_at']}",
+            status=e["severity"],
+        )
 
-# Sidebar demo controls
 with st.sidebar:
-    st.markdown("### Demo Controls")
-    if st.button("🔄 Reset Database", width='stretch'):
+    st.markdown("### Command Controls")
+    if st.button("Reset Database", use_container_width=True):
         reset_db()
         seed()
-        st.success("Reset and re-seeded.")
+        st.success("Database reset and demo data reloaded.")
         st.rerun()
 
     st.markdown("---")
-    st.markdown("### Active Now")
-    if active_orders:
-        for o in active_orders[:5]:
-            st.markdown(f"**#{o['id']}** — {o['status']} · ${o['total']:.2f}")
-    else:
-        st.markdown("*No active orders*")
+    st.markdown("### Role Views")
+    if hasattr(st, "page_link"):
+        st.page_link("pages/1_🍽️_Order.py", label="Customer: Place Order")
+        st.page_link("pages/9_🔎_Order_Status.py", label="Customer: Order Status")
+        st.page_link("pages/2_👨‍🍳_Kitchen.py", label="Chef: Kitchen Queue")
+        st.page_link("pages/3_📦_Inventory.py", label="Chef: Inventory")
+        st.page_link("pages/8_🛒_Purchasing.py", label="Owner: Purchasing")
+        st.page_link("pages/5_💰_Revenue.py", label="Owner: Analytics + Money")
+        st.page_link("pages/6_🤖_Assistant.py", label="Owner: Assistant")
+        st.page_link("pages/7_⚙️_Settings.py", label="Owner: Settings")
 
     st.markdown("---")
-    st.caption("Built for Anthropic hackathon.")
-    st.caption("LLM: Groq · DB: SQLite · UI: Streamlit")
+    st.caption("El Camino Command")
+    st.caption("Run the truck. Watch the numbers. Serve food on time.")
