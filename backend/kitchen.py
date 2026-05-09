@@ -1,7 +1,7 @@
 """Kitchen timing engine and queue helpers."""
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from . import config
 from .db import get_conn, init_db
@@ -234,6 +234,20 @@ def get_active_kitchen_orders() -> list[dict]:
             order["elapsed_minutes"] = max(elapsed_minutes, 0.0)
             order["remaining_minutes"] = remaining_minutes
             order["is_late"] = is_late
+
+            # Convert UTC estimated_ready_at to local time for display
+            eta_display = None
+            if order.get("estimated_ready_at"):
+                try:
+                    utc_dt = datetime.strptime(order["estimated_ready_at"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                    local_dt = utc_dt.astimezone()
+                    hour = local_dt.hour % 12 or 12
+                    ampm = "AM" if local_dt.hour < 12 else "PM"
+                    eta_display = f"{hour}:{local_dt.strftime('%M')} {ampm}"
+                except (ValueError, AttributeError):
+                    eta_display = order["estimated_ready_at"]
+            order["estimated_ready_at_display"] = eta_display
+
             orders.append(order)
 
     return orders

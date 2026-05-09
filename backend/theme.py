@@ -73,6 +73,11 @@ def apply_global_theme() -> None:
             }}
             #MainMenu {{ visibility: hidden; }}
             footer {{ visibility: hidden; }}
+            [data-testid="stSidebarNav"],
+            [data-testid="stSidebarNavItems"],
+            [data-testid="stSidebarNavSeparator"] {{
+                display: none !important;
+            }}
             [data-testid="stToolbar"],
             [data-testid="stDecoration"],
             [data-testid="stStatusWidget"],

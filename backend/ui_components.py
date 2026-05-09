@@ -45,13 +45,13 @@ ORDER_DASHBOARD_NAV = [
 
 OWNER_NAV = [
     ("Dashboard", ":material/dashboard:", OWNER_PAGE_DASHBOARD),
-    ("Orders", ":material/receipt_long:", CUSTOMER_PAGE_ORDER),
     ("Kitchen", ":material/skillet:", OWNER_PAGE_KITCHEN),
     ("Inventory", ":material/inventory_2:", OWNER_PAGE_INVENTORY),
     ("Purchasing", ":material/shopping_cart:", OWNER_PAGE_PURCHASING),
     ("Sales", ":material/insert_chart:", OWNER_PAGE_SALES),
     ("Revenue", ":material/paid:", OWNER_PAGE_REVENUE),
-    ("Autopilot", ":material/smart_toy:", OWNER_PAGE_AUTOPILOT),
+    ("Assistant", ":material/smart_toy:", OWNER_PAGE_ASSISTANT),
+    ("Autopilot", ":material/robot_2:", OWNER_PAGE_AUTOPILOT),
     ("Reports", ":material/request_quote:", OWNER_PAGE_BRIEF),
     ("Settings", ":material/settings:", OWNER_PAGE_SETTINGS),
 ]

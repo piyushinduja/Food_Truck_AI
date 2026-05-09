@@ -44,7 +44,8 @@ next_ready = None
 if active_orders:
     candidates = [order for order in active_orders if order.get("estimated_ready_at")]
     if candidates:
-        next_ready = min(candidates, key=lambda order: order["estimated_ready_at"])["estimated_ready_at"]
+        soonest = min(candidates, key=lambda order: order["estimated_ready_at"])
+        next_ready = soonest.get("estimated_ready_at_display") or soonest["estimated_ready_at"]
 
 metrics = st.columns(4)
 with metrics[0]:
@@ -77,7 +78,7 @@ else:
                         f"<h4 style='margin:0;'>{order_number}</h4>"
                         f"<div style='color:#B8B8B8;'>Customer: {order.get('customer_name') or 'Guest'}</div>"
                         f"<div style='margin:.4rem 0;font-weight:700;'>{pill}</div>"
-                        f"<div style='color:#B8B8B8;'>ETA: {order.get('estimated_ready_at') or 'TBD'}</div>"
+                        f"<div style='color:#B8B8B8;'>ETA: {order.get('estimated_ready_at_display') or 'TBD'}</div>"
                         f"<div style='color:#B8B8B8;'>Remaining: {eta_text}</div>"
                         "</div>"
                     ),
@@ -128,7 +129,7 @@ else:
         if upcoming:
             nxt = upcoming[0]
             st.markdown(f"**{nxt.get('order_number') or '#' + str(nxt['id'])}**")
-            st.caption(f"Status: {nxt.get('status')} · ETA: {nxt.get('estimated_ready_at') or 'TBD'}")
+            st.caption(f"Status: {nxt.get('status')} · ETA: {nxt.get('estimated_ready_at_display') or 'TBD'}")
 
 if auto:
     sleep(8)

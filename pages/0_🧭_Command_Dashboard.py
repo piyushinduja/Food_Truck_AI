@@ -660,8 +660,8 @@ if first_order and first_order.get("items"):
     due_text = f"Due in {max(int(round(remaining)), 0)} min" if remaining is not None else "ETA pending"
 
 now = datetime.now()
-date_label = now.strftime("%b %-d, %Y") if hasattr(now, "strftime") else "May 9, 2026"
-time_label = now.strftime("%-I:%M %p")
+date_label = now.strftime("%b %d, %Y").replace(" 0", " ").strip()
+time_label = now.strftime("%I:%M %p").lstrip("0")
 
 _dashboard_css()
 
