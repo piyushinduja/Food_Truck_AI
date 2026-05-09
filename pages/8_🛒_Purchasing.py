@@ -1,106 +1,141 @@
-"""Human-approved purchasing workflow page."""
+"""Owner purchasing page with autonomous mock PO flow."""
 from __future__ import annotations
 
 import _path_setup  # noqa: F401
 
+import pandas as pd
 import streamlit as st
 
 from backend import purchasing
 from backend.bootstrap import ensure_app_ready
-from backend.db import get_conn
-from backend.theme import apply_global_theme, command_card, section_header
+from backend.ui_components import (
+    VIEW_OWNER,
+    enforce_view_mode,
+    render_app_shell,
+    render_metric_card,
+    render_section_header,
+    recent_agent_events,
+)
 
 
 st.set_page_config(page_title="Purchasing — El Camino", page_icon="🛒", layout="wide")
 ensure_app_ready()
-apply_global_theme()
+render_app_shell(VIEW_OWNER)
+enforce_view_mode(VIEW_OWNER)
 
-section_header("Purchasing", "Draft, approve, and receive purchase orders")
+render_section_header("Purchasing", "Mock supplier workflow: Suggested → Created → Approved → Ordered → Received")
 
-with get_conn() as conn:
-    supplier_rows = conn.execute("SELECT id, name FROM suppliers ORDER BY name").fetchall()
-
-supplier_options = {int(r["id"]): r["name"] for r in supplier_rows}
 suggestions = purchasing.get_restock_suggestions()
+pos = purchasing.list_purchase_orders()
+active_pos = [po for po in pos if po["status"] in {"suggested", "approved"}]
+incoming = [po for po in pos if po["status"] == "approved"]
+estimated_spend = sum(float(po.get("estimated_total") or 0) for po in active_pos)
 
-section_header("Restock Suggestions")
-if not suggestions:
-    command_card("Restock Suggestions", "No suggestions right now.", status="healthy")
-else:
-    for s in suggestions:
-        with st.container(border=True):
-            st.markdown(f"### {s['ingredient']}")
-            st.caption(f"Status: {s['status']} | Urgency: {s['urgency']} | Reason: {s['reason']}")
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                st.metric("Current", f"{s['current']} {s['unit']}")
-            with c2:
-                st.metric("Estimated Qty", f"{s['estimated_qty']} {s['unit']}")
-            with c3:
-                st.metric("Estimated Cost", f"${s['estimated_cost']:.2f}")
+metrics = st.columns(4)
+with metrics[0]:
+    render_metric_card("Suggested Restocks", len(suggestions), status="warning" if suggestions else "healthy")
+with metrics[1]:
+    render_metric_card("Active Mock POs", len(active_pos), status="attention" if active_pos else "healthy")
+with metrics[2]:
+    render_metric_card("Incoming Supplies", len(incoming), status="healthy")
+with metrics[3]:
+    render_metric_card("Estimated Spend", f"${estimated_spend:.2f}")
 
-            default_supplier = s.get("supplier_id") if s.get("supplier_id") in supplier_options else None
-            supplier_ids = list(supplier_options.keys())
-            selected_supplier = st.selectbox(
-                "Supplier",
-                supplier_ids,
-                index=(supplier_ids.index(default_supplier) if default_supplier in supplier_ids else 0),
-                format_func=lambda sid: supplier_options.get(sid, f"Supplier {sid}"),
-                key=f"supplier_{s['ingredient']}",
-            ) if supplier_ids else None
+st.markdown(
+    """
+    <div class='ec-panel'>
+      <strong>Purchase Lifecycle</strong>
+      <div style='margin-top:.5rem;color:#B8B8B8;'>
+        Suggested → Created → Approved → Ordered → Received
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-            if st.button("Create Purchase Order", key=f"create_po_{s['ingredient']}", type="primary"):
-                res = purchasing.create_purchase_order_from_suggestion(
-                    ingredient=s["ingredient"],
-                    quantity=s["estimated_qty"],
-                    supplier_id=selected_supplier,
-                )
-                if res.get("ok"):
-                    st.success(f"PO #{res['purchase_order_id']} created for {s['ingredient']}.")
-                    st.rerun()
-                st.error(res.get("error", "failed_to_create_po"))
+left, right = st.columns([1.3, 1], gap="large")
 
-section_header("Purchase Order Queue")
-status_filter = st.selectbox("Filter by status", ["all", "suggested", "approved", "received", "rejected"], index=0)
-pos = purchasing.list_purchase_orders(None if status_filter == "all" else status_filter)
+with left:
+    render_section_header("Purchase Suggestions")
+    if not suggestions:
+        st.caption("No restock suggestions currently.")
+    else:
+        for suggestion in suggestions[:8]:
+            with st.container(border=True):
+                st.markdown(f"### {suggestion['ingredient']}")
+                st.caption(f"Urgency: {suggestion['urgency']} · {suggestion['reason']}")
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    st.metric("Current", f"{suggestion['current']} {suggestion['unit']}")
+                with c2:
+                    st.metric("Suggested", f"{suggestion['estimated_qty']} {suggestion['unit']}")
+                with c3:
+                    st.metric("Est Cost", f"${suggestion['estimated_cost']:.2f}")
 
+                if st.button(
+                    "Create Mock PO",
+                    key=f"create_po_{suggestion['ingredient']}",
+                    type="primary",
+                    use_container_width=True,
+                ):
+                    result = purchasing.create_purchase_order_from_suggestion(
+                        ingredient=suggestion["ingredient"],
+                        quantity=suggestion["estimated_qty"],
+                        supplier_id=suggestion.get("supplier_id"),
+                    )
+                    if result.get("ok"):
+                        st.success(f"PO #{result['purchase_order_id']} created")
+                        st.rerun()
+                    st.error(result.get("error", "failed_to_create_po"))
+
+with right:
+    render_section_header("Autopilot Activity")
+    feed = [
+        event
+        for event in recent_agent_events(limit=20)
+        if "purchase" in event["title"].lower() or "po" in event["message"].lower()
+    ]
+    if not feed:
+        st.caption("No recent autopilot purchasing actions.")
+    else:
+        for event in feed[:6]:
+            st.markdown(f"- **{event['title']}** · {event['message']} · `{event['created_at']}`")
+
+    render_section_header("Supplier Comparison")
+    if suggestions:
+        supplier_df = pd.DataFrame(
+            [
+                {
+                    "Ingredient": suggestion["ingredient"],
+                    "Preferred": suggestion.get("supplier_name") or "Unassigned",
+                    "Estimated Cost": round(float(suggestion["estimated_cost"]), 2),
+                    "Speed": "Fast" if suggestion["urgency"] == "critical" else "Normal",
+                }
+                for suggestion in suggestions[:8]
+            ]
+        )
+        st.dataframe(supplier_df, use_container_width=True, hide_index=True)
+
+render_section_header("Purchase Order Queue")
 if not pos:
     st.caption("No purchase orders yet.")
 else:
-    for po in pos:
+    for po in pos[:10]:
         with st.container(border=True):
-            supplier_name = po.get("supplier_name") or "Unassigned"
-            title = f"PO #{po['id']} · {supplier_name}"
-            body = (
-                f"Status: {po['status']}<br/>"
-                f"Estimated total: ${po['estimated_total']:.2f}<br/>"
-                f"Created: {po['created_at']}"
-            )
-            command_card(title, body, status=po["status"])
+            st.markdown(f"**PO #{po['id']}** · {po.get('supplier_name') or 'Unassigned'} · `{po['status']}`")
+            st.caption(f"Created {po['created_at']} · Estimated total ${float(po['estimated_total']):.2f}")
             for item in po.get("items", []):
-                st.markdown(
-                    f"- {item['ingredient']}: {item['quantity']} {item['unit']} | ${item['estimated_cost']:.2f}"
-                )
-
-            action_cols = st.columns(3)
-            with action_cols[0]:
-                if po["status"] in {"suggested"} and st.button("Approve", key=f"approve_{po['id']}", use_container_width=True):
-                    res = purchasing.approve_purchase_order(po["id"])
-                    if res.get("ok"):
-                        st.success(f"PO #{po['id']} approved.")
-                        st.rerun()
-                    st.error(res.get("error", "approve_failed"))
-            with action_cols[1]:
+                st.markdown(f"- {item['ingredient']}: {item['quantity']} {item['unit']} · ${item['estimated_cost']:.2f}")
+            b1, b2, b3 = st.columns(3)
+            with b1:
+                if po["status"] == "suggested" and st.button("Approve", key=f"approve_{po['id']}", use_container_width=True):
+                    purchasing.approve_purchase_order(po["id"])
+                    st.rerun()
+            with b2:
                 if po["status"] in {"suggested", "approved"} and st.button("Reject", key=f"reject_{po['id']}", use_container_width=True):
-                    res = purchasing.reject_purchase_order(po["id"])
-                    if res.get("ok"):
-                        st.success(f"PO #{po['id']} rejected.")
-                        st.rerun()
-                    st.error(res.get("error", "reject_failed"))
-            with action_cols[2]:
-                if po["status"] in {"approved"} and st.button("Mark Received", key=f"receive_{po['id']}", type="primary", use_container_width=True):
-                    res = purchasing.mark_purchase_order_received(po["id"])
-                    if res.get("ok"):
-                        st.success(f"PO #{po['id']} received. Inventory updated.")
-                        st.rerun()
-                    st.error(res.get("error", "receive_failed"))
+                    purchasing.reject_purchase_order(po["id"])
+                    st.rerun()
+            with b3:
+                if po["status"] == "approved" and st.button("Mark Received", key=f"receive_{po['id']}", type="primary", use_container_width=True):
+                    purchasing.mark_purchase_order_received(po["id"])
+                    st.rerun()

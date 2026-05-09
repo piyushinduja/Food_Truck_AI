@@ -7,38 +7,33 @@ import streamlit as st
 
 from backend import agents
 from backend.bootstrap import ensure_app_ready
-from backend.theme import apply_global_theme, section_header
+from backend.ui_components import VIEW_OWNER, enforce_view_mode, render_app_shell, render_section_header
 
 
 st.set_page_config(page_title="Owner Assistant — El Camino", page_icon="🤖", layout="wide")
 ensure_app_ready()
-apply_global_theme()
+render_app_shell(VIEW_OWNER)
+enforce_view_mode(VIEW_OWNER)
 
-section_header("Owner Assistant", "Tool-grounded operations chat. No fabricated numbers.")
+render_section_header("Assistant", "Tool-grounded owner assistant")
 
 SUGGESTIONS = [
     "What needs attention right now?",
-    "Show me inventory alerts and expiry risks.",
+    "Show inventory and expiry risks.",
     "Give me today's revenue, COGS, and estimated profit.",
     "List purchase orders waiting for approval.",
-    "Create purchase orders for the urgent restocks.",
 ]
 
 if "owner_messages" not in st.session_state:
     st.session_state.owner_messages = []
 
-for msg in st.session_state.owner_messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-        if msg["role"] == "assistant" and msg.get("tool_calls"):
-            with st.expander(f"Tool calls ({len(msg['tool_calls'])})"):
-                for tc in msg["tool_calls"]:
-                    st.markdown(f"**{tc['name']}** {tc['args']}")
-                    st.json(tc["result"], expanded=False)
+for message in st.session_state.owner_messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
 if not st.session_state.owner_messages:
-    cols = st.columns(len(SUGGESTIONS))
-    for col, text in zip(cols, SUGGESTIONS):
+    suggestion_cols = st.columns(len(SUGGESTIONS))
+    for col, text in zip(suggestion_cols, SUGGESTIONS):
         with col:
             if st.button(text, use_container_width=True):
                 st.session_state.pending_prompt = text
@@ -55,27 +50,15 @@ if prompt:
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
             try:
-                api_messages = [{"role": m["role"], "content": m["content"]} for m in st.session_state.owner_messages]
+                api_messages = [{"role": msg["role"], "content": msg["content"]} for msg in st.session_state.owner_messages]
                 result = agents.owner_chat(api_messages)
-            except Exception as exc:  # pragma: no cover - runtime/api dependent
-                result = {"reply": f"Error: {exc}", "tool_calls": []}
-
+            except Exception as exc:
+                result = {"reply": f"Assistant error: {exc}", "tool_calls": []}
         st.markdown(result["reply"])
-        if result["tool_calls"]:
-            with st.expander(f"Tool calls ({len(result['tool_calls'])})"):
-                for tc in result["tool_calls"]:
-                    st.markdown(f"**{tc['name']}** {tc['args']}")
-                    st.json(tc["result"], expanded=False)
 
-    st.session_state.owner_messages.append(
-        {
-            "role": "assistant",
-            "content": result["reply"],
-            "tool_calls": result["tool_calls"],
-        }
-    )
+    st.session_state.owner_messages.append({"role": "assistant", "content": result["reply"]})
 
 with st.sidebar:
-    if st.button("Clear chat", use_container_width=True):
+    if st.button("Clear Chat", use_container_width=True):
         st.session_state.owner_messages = []
         st.rerun()

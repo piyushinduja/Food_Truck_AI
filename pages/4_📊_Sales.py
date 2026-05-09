@@ -1,4 +1,4 @@
-"""Sales performance page."""
+"""Owner sales page."""
 from __future__ import annotations
 
 import _path_setup  # noqa: F401
@@ -9,79 +9,63 @@ import streamlit as st
 
 from backend import analytics
 from backend.bootstrap import ensure_app_ready
-from backend.theme import apply_global_theme, get_theme_tokens, metric_card, section_header
+from backend.ui_components import VIEW_OWNER, enforce_view_mode, render_app_shell, render_metric_card, render_section_header
 
 
 st.set_page_config(page_title="Sales — El Camino", page_icon="📊", layout="wide")
 ensure_app_ready()
-apply_global_theme()
-TOKENS = get_theme_tokens()
+render_app_shell(VIEW_OWNER)
+enforce_view_mode(VIEW_OWNER)
 
-section_header("Sales Analyzer", "Top and bottom performers by units and revenue")
+render_section_header("Sales", "Top sellers, low sellers, category mix, and demand patterns")
 
-days = st.sidebar.slider("Time window (days)", 1, 60, 7)
+days = st.slider("Time window (days)", min_value=1, max_value=60, value=7)
 sales = analytics.sales_by_item(days=days)
+category = analytics.revenue_by_category(days=days)
 
 if not sales:
-    st.info("No sales yet for this window.")
+    st.info("No sales data for this window.")
 else:
     df = pd.DataFrame(sales)
     summary = analytics.top_and_bottom_sellers(days=days)
 
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        metric_card("Top Seller", summary["top"][0]["name"] if summary["top"] else "--")
-    with c2:
-        metric_card("Least Seller", summary["bottom"][0]["name"] if summary["bottom"] else "--")
-    with c3:
-        metric_card("Units Sold", int(df["units_sold"].sum()))
+    m1, m2, m3, m4 = st.columns(4)
+    with m1:
+        render_metric_card("Top Seller", summary["top"][0]["name"] if summary["top"] else "--")
+    with m2:
+        render_metric_card("Least Seller", summary["bottom"][0]["name"] if summary["bottom"] else "--")
+    with m3:
+        render_metric_card("Units Sold", int(df["units_sold"].sum()))
+    with m4:
+        render_metric_card("Revenue", f"${float(df['revenue'].sum()):.2f}")
 
-    chart = (
-        alt.Chart(df)
-        .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4, color=TOKENS["primary_red"])
-        .encode(
-            x=alt.X("units_sold:Q", title="Units Sold"),
-            y=alt.Y("name:N", sort="-x", title=None),
-            tooltip=[
-                alt.Tooltip("name:N", title="Item"),
-                alt.Tooltip("category:N", title="Category"),
-                alt.Tooltip("units_sold:Q", title="Units"),
-                alt.Tooltip("revenue:Q", title="Revenue", format="$.2f"),
-            ],
+    top = st.columns(2, gap="large")
+    with top[0]:
+        bar = (
+            alt.Chart(df.head(8))
+            .mark_bar(color="#D91F26")
+            .encode(
+                x=alt.X("units_sold:Q", title="Units"),
+                y=alt.Y("name:N", sort="-x", title=None),
+                tooltip=["name", "category", "units_sold", alt.Tooltip("revenue", format="$.2f")],
+            )
+            .properties(height=280)
         )
-        .properties(height=360)
-    )
-    st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(bar, use_container_width=True)
 
-    table = df.copy()
-    table["revenue"] = table["revenue"].round(2)
-    st.dataframe(table.rename(columns={"name": "item"}), use_container_width=True, hide_index=True)
+    with top[1]:
+        if category:
+            cdf = pd.DataFrame(category)
+            donut = (
+                alt.Chart(cdf)
+                .mark_arc(innerRadius=56)
+                .encode(
+                    theta=alt.Theta("revenue:Q"),
+                    color=alt.Color("category:N", legend=None),
+                    tooltip=["category", "units", alt.Tooltip("revenue", format="$.2f")],
+                )
+                .properties(height=280)
+            )
+            st.altair_chart(donut, use_container_width=True)
 
-section_header("Revenue by Category")
-cat = analytics.revenue_by_category(days=days)
-if cat:
-    cdf = pd.DataFrame(cat)
-    pie = (
-        alt.Chart(cdf)
-        .mark_arc(innerRadius=64)
-        .encode(
-            theta=alt.Theta(field="revenue", type="quantitative"),
-            color=alt.Color(
-                "category:N",
-                scale=alt.Scale(
-                    range=[
-                        TOKENS["primary_red"],
-                        TOKENS["text_secondary"],
-                        TOKENS["border"],
-                        TOKENS["text_primary"],
-                        TOKENS["warning"],
-                    ]
-                ),
-            ),
-            tooltip=["category", "units", alt.Tooltip("revenue", format="$.2f")],
-        )
-        .properties(height=320)
-    )
-    st.altair_chart(pie, use_container_width=True)
-else:
-    st.caption("No category data available.")
+    st.dataframe(df.rename(columns={"name": "item"}), use_container_width=True, hide_index=True)

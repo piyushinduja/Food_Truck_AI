@@ -1,49 +1,83 @@
-"""Inventory command center with expiry and stock-risk tracking."""
+"""Owner inventory page with visual-first layout."""
 from __future__ import annotations
 
 import _path_setup  # noqa: F401
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
-from backend import analytics, inventory as inv_mod, purchasing
+from backend import analytics, inventory, purchasing
 from backend.bootstrap import ensure_app_ready
-from backend.theme import apply_global_theme, command_card, metric_card, section_header
+from backend.ui_components import (
+    VIEW_OWNER,
+    enforce_view_mode,
+    render_app_shell,
+    render_metric_card,
+    render_section_header,
+)
 
 
 st.set_page_config(page_title="Inventory — El Camino", page_icon="📦", layout="wide")
 ensure_app_ready()
-apply_global_theme()
+render_app_shell(VIEW_OWNER)
+enforce_view_mode(VIEW_OWNER)
 
-section_header("Inventory Command", "Expiry-aware stock control and menu safety")
+render_section_header("Inventory", "Visual health, expiry risk, and menu impact")
 
-status_rows = inv_mod.get_inventory_status()
-alerts = inv_mod.get_inventory_alerts()
-unavailable_items = inv_mod.get_unavailable_menu_items()
+status_rows = inventory.get_inventory_status()
+alerts = inventory.get_inventory_alerts()
+unavailable_items = inventory.get_unavailable_menu_items()
 suggestions = purchasing.get_restock_suggestions()
 
-low_count = sum(1 for i in status_rows if i["status"] == "low")
-critical_count = sum(1 for i in status_rows if i["status"] in {"critical", "out", "expired"})
-expiring_count = sum(1 for i in status_rows if i["status"] in {"expires_today", "expires_soon", "expired"})
+low_count = sum(1 for row in status_rows if row["status"] == "low")
+critical_count = sum(1 for row in status_rows if row["status"] in {"critical", "out", "expired"})
+expiring_count = sum(1 for row in status_rows if row["status"] in {"expires_today", "expires_soon", "expired"})
 
-c1, c2, c3, c4, c5 = st.columns(5)
-with c1:
-    metric_card("Ingredients", len(status_rows))
-with c2:
-    metric_card("Low Stock", low_count, status="warning" if low_count else "healthy")
-with c3:
-    metric_card("Critical/Out", critical_count, status="critical" if critical_count else "healthy")
-with c4:
-    metric_card("Expiring", expiring_count, status="warning" if expiring_count else "healthy")
-with c5:
-    metric_card("Inventory Value", f"${analytics.inventory_value():,.2f}")
+metrics = st.columns(5)
+with metrics[0]:
+    render_metric_card("Total Ingredients", len(status_rows))
+with metrics[1]:
+    render_metric_card("Low Stock", low_count, status="warning" if low_count else "healthy")
+with metrics[2]:
+    render_metric_card("Critical/Out", critical_count, status="critical" if critical_count else "healthy")
+with metrics[3]:
+    render_metric_card("Expiring Soon", expiring_count, status="warning" if expiring_count else "healthy")
+with metrics[4]:
+    render_metric_card("Inventory Value", f"${analytics.inventory_value():,.2f}")
 
-left, right = st.columns([1.2, 1])
+left, right = st.columns([1.4, 1], gap="large")
+
+status_df = pd.DataFrame(status_rows)
 
 with left:
-    section_header("Inventory Table", "Edit quantities, thresholds, supplier links, and expiry dates")
-    df = pd.DataFrame(status_rows)
-    if not df.empty:
+    render_section_header("Inventory Status")
+    if not status_df.empty:
+        visual_df = pd.DataFrame(
+            [
+                {"status": "ok", "count": int((status_df["status"] == "ok").sum())},
+                {"status": "low", "count": int((status_df["status"] == "low").sum())},
+                {"status": "critical/out", "count": int(status_df["status"].isin(["critical", "out", "expired"]).sum())},
+                {"status": "expiry risk", "count": int(status_df["status"].isin(["expires_today", "expires_soon", "expired"]).sum())},
+            ]
+        )
+        bar = (
+            alt.Chart(visual_df)
+            .mark_bar(cornerRadiusTopLeft=4, cornerRadiusTopRight=4)
+            .encode(
+                x=alt.X("status:N", title=None),
+                y=alt.Y("count:Q", title="Count"),
+                color=alt.Color(
+                    "status:N",
+                    scale=alt.Scale(range=["#2F8F57", "#B47A1D", "#D91F26", "#8A8A8A"]),
+                    legend=None,
+                ),
+                tooltip=["status", "count"],
+            )
+            .properties(height=190)
+        )
+        st.altair_chart(bar, use_container_width=True)
+
         table_cols = [
             "ingredient",
             "quantity",
@@ -51,89 +85,31 @@ with left:
             "reorder_threshold",
             "critical_threshold",
             "expiration_date",
-            "supplier_id",
-            "category",
-            "cost_per_unit",
             "status",
         ]
-        edit_df = df[table_cols].copy()
-        edited = st.data_editor(
-            edit_df,
-            use_container_width=True,
-            hide_index=True,
-            key="inventory_editor",
-            num_rows="fixed",
-            column_config={
-                "status": st.column_config.TextColumn(disabled=True),
-                "ingredient": st.column_config.TextColumn(disabled=True),
-            },
-        )
-
-        if st.button("Save Inventory Changes", type="primary", use_container_width=True):
-            for _, row in edited.iterrows():
-                inv_mod.update_inventory_item(
-                    ingredient=row["ingredient"],
-                    quantity=float(row["quantity"]),
-                    unit=row["unit"],
-                    reorder_threshold=float(row["reorder_threshold"]),
-                    critical_threshold=float(row["critical_threshold"]),
-                    expiration_date=(row["expiration_date"] or None),
-                    supplier_id=(int(row["supplier_id"]) if pd.notna(row["supplier_id"]) else None),
-                    category=row["category"],
-                    cost_per_unit=float(row["cost_per_unit"]),
-                )
-            st.success("Inventory updates saved.")
-            st.rerun()
-
-    section_header("Manual Inventory Adjustment")
-    ingredients = [i["ingredient"] for i in status_rows]
-    if ingredients:
-        m1, m2, m3 = st.columns([2.2, 1, 1])
-        with m1:
-            selected = st.selectbox("Ingredient", ingredients)
-        with m2:
-            qty = st.number_input("Quantity", min_value=0.0, value=10.0, step=1.0)
-        with m3:
-            if st.button("Mark Received", use_container_width=True):
-                res = inv_mod.mark_inventory_received(selected, qty)
-                if res["ok"]:
-                    st.success(f"Added {qty} to {selected}.")
-                    st.rerun()
-                st.error(res.get("error", "update_failed"))
+        st.dataframe(status_df[table_cols], use_container_width=True, hide_index=True)
 
 with right:
-    section_header("Inventory Alerts")
+    render_section_header("Alerts")
     if not alerts:
-        command_card("Inventory", "No active alerts.", status="healthy")
+        st.caption("No active alerts.")
     else:
-        for alert in alerts:
-            command_card(alert["ingredient"], alert["message"], status=alert["status"])
+        for alert in alerts[:8]:
+            st.markdown(f"- **{alert['ingredient']}** · {alert['message']}")
 
-    section_header("Restock Suggestions")
+    render_section_header("Purchasing Suggestions")
     if not suggestions:
-        command_card("Restock", "No restock suggestions pending.", status="healthy")
+        st.caption("No restock suggestions.")
     else:
-        for s in suggestions:
-            command_card(
-                s["ingredient"],
-                f"Need {s['estimated_qty']} {s['unit']} | Est ${s['estimated_cost']:.2f}<br/>{s['reason']}",
-                status="critical" if s["urgency"] == "critical" else "warning",
+        for suggestion in suggestions[:6]:
+            st.markdown(
+                f"- **{suggestion['ingredient']}** · {suggestion['estimated_qty']} {suggestion['unit']} · ${suggestion['estimated_cost']:.2f}"
             )
 
-section_header("Menu Availability Impact")
+render_section_header("Menu Availability Impact")
 if not unavailable_items:
-    st.caption("All menu items currently available.")
+    st.caption("All menu items are available.")
 else:
-    for item in unavailable_items:
-        blockers = ", ".join(b["ingredient"] for b in item["blocking_ingredients"]) or "unknown blockers"
-        command_card(item["menu_name"], f"Blocked by: {blockers}", status="critical")
-
-restocks = inv_mod.list_restocks(limit=20)
-if restocks:
-    section_header("Received Restock History")
-    rdf = pd.DataFrame(restocks)
-    st.dataframe(
-        rdf[["created_at", "ingredient", "quantity", "unit", "cost", "supplier", "status"]],
-        use_container_width=True,
-        hide_index=True,
-    )
+    for item in unavailable_items[:6]:
+        blockers = ", ".join(blocker["ingredient"] for blocker in item["blocking_ingredients"]) or "unknown"
+        st.markdown(f"- **{item['menu_name']}** blocked by {blockers}")
