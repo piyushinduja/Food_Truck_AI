@@ -35,6 +35,18 @@ CUSTOMER_NAV = [
     ("Order Status", "🔎", CUSTOMER_PAGE_STATUS),
 ]
 
+ORDER_DASHBOARD_NAV = [
+    ("Dashboard", "🧭", OWNER_PAGE_DASHBOARD),
+    ("Order", "🍽️", CUSTOMER_PAGE_ORDER),
+    ("Kitchen", "👨‍🍳", OWNER_PAGE_KITCHEN),
+    ("Inventory", "📦", OWNER_PAGE_INVENTORY),
+    ("Sales", "📊", OWNER_PAGE_SALES),
+    ("Revenue", "💰", OWNER_PAGE_REVENUE),
+    ("Assistant", "🤖", OWNER_PAGE_ASSISTANT),
+    ("Purchasing", "🛒", OWNER_PAGE_PURCHASING),
+    ("Autopilot", "🧠", OWNER_PAGE_AUTOPILOT),
+]
+
 OWNER_NAV = [
     ("Command Dashboard", "🧭", OWNER_PAGE_DASHBOARD),
     ("Kitchen", "👨‍🍳", OWNER_PAGE_KITCHEN),
@@ -100,6 +112,17 @@ def render_sidebar(view_mode: str) -> None:
     with st.sidebar:
         st.markdown("## EL CAMINO")
         st.caption("AI Food Truck Command")
+        st.divider()
+
+        nav = ORDER_DASHBOARD_NAV if view_mode == VIEW_CUSTOMER else OWNER_NAV
+        for label, icon, path in nav:
+            if hasattr(st, "page_link"):
+                st.page_link(path, label=label, icon=icon)
+            else:
+                if st.button(f"{icon} {label}", use_container_width=True, key=f"nav_{label}"):
+                    _switch(path)
+
+        st.divider()
         selected = st.radio(
             "Experience",
             ["Customer View", "Owner View"],
@@ -112,15 +135,6 @@ def render_sidebar(view_mode: str) -> None:
             _switch(CUSTOMER_PAGE_ORDER if selected_mode == VIEW_CUSTOMER else OWNER_PAGE_DASHBOARD)
 
         st.markdown(f"**Service**: `{open_label}`")
-        st.divider()
-
-        nav = CUSTOMER_NAV if selected_mode == VIEW_CUSTOMER else OWNER_NAV
-        for label, icon, path in nav:
-            if hasattr(st, "page_link"):
-                st.page_link(path, label=label, icon=icon)
-            else:
-                if st.button(f"{icon} {label}", use_container_width=True):
-                    _switch(path)
 
 
 def render_top_status_bar() -> None:

@@ -57,7 +57,7 @@ MENU = [
         "description": "Grilled steak, onion, cilantro on corn tortilla",
         "prep_time_minutes": 1.2,
         "cook_time_minutes": 3.8,
-        "image_url": "",
+        "image_url": "https://unsplash.com/photos/_j4S4V2C8ew/download?force=true",
         "sort_order": 10,
     },
     {
@@ -67,7 +67,7 @@ MENU = [
         "description": "Marinated pork with pineapple",
         "prep_time_minutes": 1.1,
         "cook_time_minutes": 3.4,
-        "image_url": "",
+        "image_url": "https://unsplash.com/photos/wIqpmuOloVA/download?force=true",
         "sort_order": 20,
     },
     {
@@ -77,7 +77,7 @@ MENU = [
         "description": "Black beans, peppers, queso fresco",
         "prep_time_minutes": 1.0,
         "cook_time_minutes": 3.1,
-        "image_url": "",
+        "image_url": "https://unsplash.com/photos/lP5MCM6nZ5A/download?force=true",
         "sort_order": 30,
     },
     {
@@ -87,7 +87,7 @@ MENU = [
         "description": "Steak, rice, beans, salsa, cheese",
         "prep_time_minutes": 2.4,
         "cook_time_minutes": 6.8,
-        "image_url": "",
+        "image_url": "https://unsplash.com/photos/p-O37cSAV_4/download?force=true",
         "sort_order": 40,
     },
     {
@@ -97,7 +97,7 @@ MENU = [
         "description": "Beans, rice, peppers, queso fresco, salsa",
         "prep_time_minutes": 2.2,
         "cook_time_minutes": 6.2,
-        "image_url": "",
+        "image_url": "https://unsplash.com/photos/qYtfN2109Wg/download?force=true",
         "sort_order": 50,
     },
     {
@@ -107,7 +107,7 @@ MENU = [
         "description": "Fresh tortilla chips with house guacamole",
         "prep_time_minutes": 1.6,
         "cook_time_minutes": 2.3,
-        "image_url": "",
+        "image_url": "https://images.pexels.com/photos/7601338/pexels-photo-7601338.jpeg?auto=compress&cs=tinysrgb&w=1100",
         "sort_order": 60,
     },
     {
@@ -117,7 +117,7 @@ MENU = [
         "description": "Chips, beans, cheese, salsa, jalapeños",
         "prep_time_minutes": 1.8,
         "cook_time_minutes": 4.8,
-        "image_url": "",
+        "image_url": "https://images.pexels.com/photos/27603312/pexels-photo-27603312.jpeg?auto=compress&cs=tinysrgb&w=1100",
         "sort_order": 70,
     },
     {
@@ -127,7 +127,7 @@ MENU = [
         "description": "12 oz can",
         "prep_time_minutes": 0.2,
         "cook_time_minutes": 0.2,
-        "image_url": "",
+        "image_url": "https://images.pexels.com/photos/14650671/pexels-photo-14650671.jpeg?auto=compress&cs=tinysrgb&w=1100",
         "sort_order": 80,
     },
     {
@@ -137,7 +137,7 @@ MENU = [
         "description": "Fresh-squeezed",
         "prep_time_minutes": 0.4,
         "cook_time_minutes": 0.2,
-        "image_url": "",
+        "image_url": "https://images.pexels.com/photos/2109099/pexels-photo-2109099.jpeg?auto=compress&cs=tinysrgb&w=1100",
         "sort_order": 90,
     },
     {
@@ -147,7 +147,7 @@ MENU = [
         "description": "Cinnamon rice milk",
         "prep_time_minutes": 0.6,
         "cook_time_minutes": 0.2,
-        "image_url": "",
+        "image_url": "https://images.pexels.com/photos/5946963/pexels-photo-5946963.jpeg?auto=compress&cs=tinysrgb&w=1100",
         "sort_order": 100,
     },
 ]

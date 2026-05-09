@@ -96,6 +96,9 @@ def apply_global_theme() -> None:
                 background: linear-gradient(180deg, var(--ec-sidebar-bg) 0%, #070707 100%);
                 border-right: 1px solid var(--ec-border);
             }}
+            [data-testid="stSidebarNav"] {{
+                display: none;
+            }}
             [data-testid="stSidebarNav"] a {{
                 color: var(--ec-text-secondary);
                 border-radius: 12px;
