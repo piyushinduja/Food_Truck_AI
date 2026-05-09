@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 from . import config
 from .db import get_conn, init_db
+from .timing import estimate_menu_timing, has_placeholder_timing
 
 
 ACTIVE_STATUSES = ("pending", "preparing", "ready")
@@ -34,6 +35,8 @@ def get_order_with_timing_data(order_id: int) -> dict | None:
                 oi.quantity,
                 oi.notes,
                 m.name AS item_name,
+                m.category,
+                m.description,
                 COALESCE(m.prep_time_minutes, 1) AS prep_time_minutes,
                 COALESCE(m.cook_time_minutes, 5) AS cook_time_minutes
             FROM order_items oi
@@ -48,6 +51,16 @@ def get_order_with_timing_data(order_id: int) -> dict | None:
     normalized_items = []
     for item in items:
         d = dict(item)
+        if has_placeholder_timing(d):
+            prep, cook = estimate_menu_timing(
+                {
+                    "name": d.get("item_name"),
+                    "category": d.get("category"),
+                    "description": d.get("description"),
+                }
+            )
+            d["prep_time_minutes"] = prep
+            d["cook_time_minutes"] = cook
         per_serving = float(d["prep_time_minutes"]) + float(d["cook_time_minutes"])
         # Prototype quantity scaling: each extra unit adds 60% of full cycle.
         qty = max(int(d["quantity"]), 1)
@@ -74,13 +87,14 @@ def generate_kitchen_timeline(order_id: int) -> list[dict]:
         start_offset = max(0.0, round(longest - duration, 2))
         target_start = start_base + timedelta(minutes=start_offset)
         target_finish = target_start + timedelta(minutes=duration)
+        verb = "Prep" if float(item.get("cook_time_minutes") or 0) <= 0 else "Cook"
 
         timeline.append(
             {
                 "order_id": order_id,
                 "order_item_id": item["order_item_id"],
                 "item_name": item["item_name"],
-                "action": f"Cook {item['quantity']}x {item['item_name']}",
+                "action": f"{verb} {item['quantity']}x {item['item_name']}",
                 "start_offset_minutes": start_offset,
                 "duration_minutes": round(duration, 2),
                 "target_start_time": target_start.strftime("%Y-%m-%d %H:%M:%S"),

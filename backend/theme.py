@@ -54,35 +54,65 @@ def apply_global_theme() -> None:
         <style>
             :root {{
                 --ec-bg: {tokens['background']};
+                --ec-page-bg: {tokens['background']};
+                --ec-sidebar-bg: #0B0B0B;
                 --ec-surface: {tokens['surface']};
+                --ec-card: {tokens['surface']};
                 --ec-surface-elev: {tokens['surface_elevated']};
+                --ec-card-elev: {tokens['surface_elevated']};
                 --ec-text: {tokens['text_primary']};
+                --ec-text-secondary: {tokens['text_secondary']};
                 --ec-text-muted: {tokens['text_secondary']};
                 --ec-border: {tokens['border']};
                 --ec-red: {tokens['primary_red']};
+                --ec-red-hover: #F12A32;
+                --ec-red-dark: #7A1014;
                 --ec-danger: {tokens['danger_red']};
                 --ec-warning: {tokens['warning']};
                 --ec-success: {tokens['success']};
             }}
+            #MainMenu {{ visibility: hidden; }}
+            footer {{ visibility: hidden; }}
+            header[data-testid="stHeader"] {{
+                background: transparent;
+                height: 0;
+            }}
             .stApp {{
-                background: var(--ec-bg);
+                background: radial-gradient(circle at 40% 0%, #0D0D0D 0%, var(--ec-bg) 36%);
                 color: var(--ec-text);
+                font-family: "Inter", "Segoe UI", "SF Pro Display", "Helvetica Neue", sans-serif;
             }}
             .main > div {{
-                padding-top: 1rem;
+                padding-top: 1.0rem;
+                padding-left: 1.6rem;
+                padding-right: 1.6rem;
             }}
-            h1, h2, h3, h4, h5, h6, p, li, label, div {{
+            h1, h2, h3, h4, h5, h6, p, li, label, div, span {{
                 color: var(--ec-text);
+                font-family: "Inter", "Segoe UI", "SF Pro Display", "Helvetica Neue", sans-serif;
+                box-sizing: border-box;
             }}
             [data-testid="stSidebar"] {{
-                background: var(--ec-surface);
+                background: linear-gradient(180deg, var(--ec-sidebar-bg) 0%, #070707 100%);
                 border-right: 1px solid var(--ec-border);
             }}
-            [data-testid="stMetric"] {{
-                background: var(--ec-surface);
-                border: 1px solid var(--ec-border);
+            [data-testid="stSidebarNav"] a {{
+                color: var(--ec-text-secondary);
                 border-radius: 12px;
+                margin-bottom: 0.25rem;
+            }}
+            [data-testid="stSidebarNav"] a[aria-current="page"],
+            [data-testid="stSidebarNav"] a:hover {{
+                background: linear-gradient(135deg, var(--ec-red-dark), #A0151B);
+                color: var(--ec-text) !important;
+            }}
+            [data-testid="stVerticalBlockBorderWrapper"],
+            [data-testid="stMetric"] {{
+                background: linear-gradient(180deg, #131313 0%, #101010 100%);
+                border: 1px solid var(--ec-border);
+                border-radius: 16px;
                 padding: 0.8rem;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.22);
             }}
             div[data-baseweb="select"] > div,
             div[data-baseweb="input"] > div,
@@ -92,24 +122,39 @@ def apply_global_theme() -> None:
                 background: var(--ec-surface);
                 color: var(--ec-text);
                 border-color: var(--ec-border);
+                border-radius: 10px;
             }}
             .stButton > button {{
                 border: 1px solid var(--ec-border);
                 background: var(--ec-surface-elev);
                 color: var(--ec-text);
-                border-radius: 10px;
+                border-radius: 12px;
+                font-weight: 650;
             }}
             .stButton > button[kind="primary"] {{
-                border-color: var(--ec-red);
-                background: var(--ec-red);
+                border-color: transparent;
+                background: linear-gradient(90deg, #B8151B 0%, var(--ec-red) 75%);
+                color: #fff;
+            }}
+            .stButton > button[kind="primary"]:hover {{
+                background: linear-gradient(90deg, #C9181F 0%, var(--ec-red-hover) 85%);
                 color: #fff;
             }}
             .ec-metric-card, .ec-command-card, .ec-panel {{
-                background: var(--ec-surface);
+                background: linear-gradient(180deg, #131313 0%, #101010 100%);
                 border: 1px solid var(--ec-border);
-                border-radius: 12px;
+                border-radius: 16px;
                 padding: 0.9rem;
                 margin-bottom: 0.7rem;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.22);
+                overflow: hidden;
+                max-width: 100%;
+            }}
+            .ec-command-card *,
+            .ec-metric-card *,
+            .ec-panel * {{
+                min-width: 0;
+                overflow-wrap: anywhere;
             }}
             .ec-caption {{ color: var(--ec-text-muted); font-size: 0.92rem; }}
             .ec-kicker {{ color: var(--ec-text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.75rem; }}
@@ -122,11 +167,34 @@ def apply_global_theme() -> None:
                 font-size: 0.75rem;
                 font-weight: 600;
                 margin-left: 0.35rem;
+                text-transform: uppercase;
+            }}
+            div[data-testid="stAlert"] {{
+                background: transparent !important;
+                border: 0 !important;
+                padding: 0 !important;
+                color: var(--ec-text);
+            }}
+            div[data-testid="stAlert"] > div,
+            div[data-testid="stAlertContainer"],
+            div[data-baseweb="notification"] {{
+                background: linear-gradient(180deg, #131313 0%, #101010 100%) !important;
+                border: 1px solid var(--ec-border) !important;
+                border-radius: 16px !important;
+                color: var(--ec-text) !important;
+                box-shadow: 0 10px 26px rgba(0,0,0,0.22);
+            }}
+            div[data-testid="stAlert"] svg {{
+                fill: var(--ec-red) !important;
             }}
             .stDataFrame, .stTable {{
                 border: 1px solid var(--ec-border);
                 border-radius: 12px;
                 overflow: hidden;
+            }}
+            hr {{
+                border-color: var(--ec-border);
+                opacity: 0.55;
             }}
         </style>
         """,

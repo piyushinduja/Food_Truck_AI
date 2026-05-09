@@ -5,6 +5,8 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 
+from .timing import estimate_menu_timing, has_placeholder_timing
+
 DB_PATH = Path(__file__).parent.parent / "data" / "foodtruck.db"
 
 
@@ -253,6 +255,30 @@ def migrate_db() -> None:
                 cook_time_minutes = COALESCE(cook_time_minutes, 5)
             """
         )
+        menu_rows = conn.execute(
+            """
+            SELECT id, name, category, description, prep_time_minutes, cook_time_minutes
+            FROM menu
+            """
+        ).fetchall()
+        for row in menu_rows:
+            item = dict(row)
+            if not has_placeholder_timing(item):
+                continue
+            ingredient_rows = conn.execute(
+                "SELECT ingredient FROM recipe WHERE menu_id = ?",
+                (item["id"],),
+            ).fetchall()
+            ingredients = [ingredient["ingredient"] for ingredient in ingredient_rows]
+            prep, cook = estimate_menu_timing(item, ingredients)
+            conn.execute(
+                """
+                UPDATE menu
+                SET prep_time_minutes = ?, cook_time_minutes = ?
+                WHERE id = ?
+                """,
+                (prep, cook, item["id"]),
+            )
         conn.execute(
             """
             UPDATE inventory

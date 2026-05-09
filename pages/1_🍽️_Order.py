@@ -11,6 +11,7 @@ from backend import agents, orders as orders_mod
 from backend import config as config_mod
 from backend import inventory as inventory_mod
 from backend.bootstrap import ensure_app_ready
+from backend.timing import estimate_menu_timing, has_placeholder_timing
 
 
 st.set_page_config(page_title="Order — EL CAMINO", page_icon="🛣️", layout="wide")
@@ -335,10 +336,13 @@ def apply_el_camino_theme() -> None:
                 min-height: 268px;
                 margin-bottom: 0.48rem;
                 transition: border-color .2s ease;
+                overflow: hidden;
+                max-width: 100%;
+                position: relative;
             }}
             .ec-menu-card:hover {{ border-color: #4A2426; }}
             .ec-menu-card.compact {{ min-height: 254px; padding: 0.88rem; }}
-            .ec-menu-head {{ display:flex; gap:0.9rem; align-items:flex-start; }}
+            .ec-menu-head {{ display:flex; gap:0.9rem; align-items:flex-start; min-width:0; padding-right: 0; }}
             .ec-thumb {{
                 width: 82px;
                 height: 82px;
@@ -351,10 +355,35 @@ def apply_el_camino_theme() -> None:
                 font-size: 2rem;
                 flex-shrink:0;
             }}
-            .ec-menu-title-wrap {{ flex:1; }}
-            .ec-menu-name {{ font-size: 1.85rem; font-weight: 750; color: var(--ec-text); }}
-            .ec-menu-price {{ color: var(--ec-red); font-size: 2.02rem; font-weight: 780; margin-top: 0.18rem; }}
-            .ec-menu-desc {{ color: var(--ec-text-secondary); font-size: 1.0rem; margin-top: 0.32rem; }}
+            .ec-menu-card.compact .ec-thumb {{ width: 74px; height: 74px; font-size: 1.72rem; }}
+            .ec-menu-title-wrap {{ flex:1; min-width:0; max-width:100%; padding-right: 0.2rem; }}
+            .ec-menu-name {{
+                font-size: clamp(1.22rem, 2.1vw, 1.82rem);
+                font-weight: 750;
+                color: var(--ec-text);
+                line-height: 1.08;
+                overflow-wrap: normal;
+                word-break: normal;
+                hyphens: none;
+                max-width: calc(100% - 5.8rem);
+            }}
+            .ec-menu-price {{
+                color: var(--ec-red);
+                font-size: clamp(1.55rem, 2.25vw, 2.02rem);
+                font-weight: 780;
+                margin-top: 0.18rem;
+                white-space: nowrap;
+            }}
+            .ec-menu-desc {{
+                color: var(--ec-text-secondary);
+                font-size: 1.0rem;
+                margin-top: 0.32rem;
+                overflow-wrap: break-word;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+            }}
             .ec-status-pill {{
                 border: 1px solid var(--ec-red);
                 color: var(--ec-red);
@@ -365,6 +394,11 @@ def apply_el_camino_theme() -> None:
                 padding: 0.22rem 0.58rem;
                 text-transform: uppercase;
                 align-self:flex-start;
+                flex-shrink:0;
+                position: absolute;
+                top: 1rem;
+                right: 1rem;
+                background: #101010;
             }}
             .ec-status-pill.muted {{
                 border-color: #525252;
@@ -376,6 +410,7 @@ def apply_el_camino_theme() -> None:
                 padding-top: 0.64rem;
                 display:flex;
                 gap:0.8rem;
+                flex-wrap: wrap;
                 color: var(--ec-text-secondary);
                 font-size: 0.98rem;
             }}
@@ -587,6 +622,14 @@ def apply_el_camino_theme() -> None:
             }}
 
             .ec-footer-spacer {{ height: 0.4rem; }}
+
+            @media (max-width: 1300px) {{
+                .ec-menu-head {{ gap: 0.7rem; }}
+                .ec-thumb {{ width: 68px; height: 68px; font-size: 1.72rem; }}
+                .ec-menu-price {{ font-size: 1.74rem; }}
+                .ec-status-pill {{ display: none; }}
+                .ec-menu-name {{ max-width: 100%; }}
+            }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -663,6 +706,19 @@ def render_primary_button(label: str) -> str:
     return f"＋  {label}"
 
 
+def _minutes(value: object, fallback: float) -> float:
+    if value is None or value == "":
+        return fallback
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _minute_label(value: float, zero_label: str) -> str:
+    return zero_label if value <= 0 else f"{value:.1f}m"
+
+
 def _item_emoji(item: dict) -> str:
     category = str(item.get("category") or "").lower()
     name = str(item.get("name") or "").lower()
@@ -683,8 +739,10 @@ def render_menu_card(item: dict, compact: bool = False) -> None:
     card_class = "ec-menu-card compact" if compact else "ec-menu-card"
 
     desc = escape(item.get("description") or "")
-    prep = float(item.get("prep_time_minutes") or 1)
-    cook = float(item.get("cook_time_minutes") or 5)
+    prep = _minutes(item.get("prep_time_minutes"), 1)
+    cook = _minutes(item.get("cook_time_minutes"), 5)
+    if has_placeholder_timing(item):
+        prep, cook = estimate_menu_timing(item)
 
     st.markdown(
         f"""
@@ -692,18 +750,16 @@ def render_menu_card(item: dict, compact: bool = False) -> None:
             <div class="ec-menu-head">
                 <div class="ec-thumb">{_item_emoji(item)}</div>
                 <div class="ec-menu-title-wrap">
-                    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.6rem;">
-                        <div class="ec-menu-name">{escape(str(item['name']))}</div>
-                        {pill}
-                    </div>
+                    {pill}
+                    <div class="ec-menu-name">{escape(str(item['name']))}</div>
                     <div class="ec-menu-price">${float(item['price']):.2f}</div>
                     <div class="ec-menu-desc">{desc}</div>
                 </div>
             </div>
             <div class="ec-menu-meta">
-                <span>◷ Prep {prep:.1f}m</span>
+                <span>◷ Prep {_minute_label(prep, "Ready")}</span>
                 <span class="ec-meta-sep">|</span>
-                <span>◶ Cook {cook:.1f}m</span>
+                <span>◶ {_minute_label(cook, "No cook")}</span>
             </div>
         </div>
         """,
@@ -979,7 +1035,12 @@ def wait_time_preview(menu_lookup: dict[int, dict], cart: list[dict]) -> float:
         menu = menu_lookup.get(line["menu_id"])
         if not menu:
             continue
-        per = float(menu.get("prep_time_minutes") or 1) + float(menu.get("cook_time_minutes") or 5)
+        if has_placeholder_timing(menu):
+            prep, cook = estimate_menu_timing(menu)
+        else:
+            prep = _minutes(menu.get("prep_time_minutes"), 1)
+            cook = _minutes(menu.get("cook_time_minutes"), 5)
+        per = prep + cook
         qty = max(int(line.get("quantity") or 1), 1)
         durations.append(per + max(0, qty - 1) * (per * 0.6))
 
