@@ -277,6 +277,17 @@ def apply_global_theme() -> None:
                 border-color: var(--ec-border);
                 opacity: 0.55;
             }}
+            @media (max-width: 768px) {{
+                header[data-testid="stHeader"] {{
+                    display: block !important;
+                    height: auto !important;
+                    background: #080808 !important;
+                    border-bottom: 1px solid rgba(255,255,255,0.12) !important;
+                }}
+                .main > div {{
+                    padding-top: 3.5rem !important;
+                }}
+            }}
         </style>
         """,
         unsafe_allow_html=True,
