@@ -279,10 +279,21 @@ def apply_global_theme() -> None:
             }}
             @media (max-width: 768px) {{
                 header[data-testid="stHeader"] {{
-                    display: block !important;
+                    display: flex !important;
                     height: auto !important;
+                    min-height: 2.75rem !important;
                     background: #080808 !important;
                     border-bottom: 1px solid rgba(255,255,255,0.12) !important;
+                    align-items: center !important;
+                }}
+                [data-testid="stSidebarHeader"] {{
+                    display: flex !important;
+                    height: auto !important;
+                    align-items: center !important;
+                    padding: 0.5rem 0.75rem !important;
+                }}
+                [data-testid="collapsedControl"] {{
+                    display: flex !important;
                 }}
                 .main > div {{
                     padding-top: 3.5rem !important;
